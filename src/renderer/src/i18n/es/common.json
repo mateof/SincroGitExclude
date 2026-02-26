@@ -1,0 +1,48 @@
+{
+  "app": {
+    "name": "SincroGitExclude",
+    "description": "Gestiona archivos excluidos de git con control de versiones"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "create": "Crear",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "export": "Exportar",
+    "import": "Importar",
+    "search": "Buscar",
+    "refresh": "Actualizar",
+    "back": "Volver"
+  },
+  "status": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "excluded": "Excluido",
+    "notExcluded": "No excluido",
+    "hasChanges": "Con cambios",
+    "synced": "Sincronizado",
+    "noChanges": "Sin cambios",
+    "unknown": "Desconocido",
+    "error": "Error",
+    "globallyExcluded": "Excluido global"
+  },
+  "labels": {
+    "name": "Nombre",
+    "alias": "Alias",
+    "path": "Ruta",
+    "date": "Fecha",
+    "actions": "Acciones",
+    "status": "Estado",
+    "noData": "No hay datos disponibles",
+    "loading": "Cargando...",
+    "confirmDelete": "Esta seguro de que desea eliminar este elemento? Esta accion no se puede deshacer."
+  },
+  "delete": {
+    "deleteFromDisk": "Eliminar del disco",
+    "keepOnDisk": "Mantener en disco",
+    "willDeleteFromDisk": "El fichero desplegado se eliminara del disco"
+  }
+}
