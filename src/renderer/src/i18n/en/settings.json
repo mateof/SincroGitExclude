@@ -1,0 +1,74 @@
+{
+  "title": "Settings",
+  "theme": {
+    "label": "Theme",
+    "description": "Choose between light and dark appearance",
+    "dark": "Dark",
+    "light": "Light"
+  },
+  "language": {
+    "label": "Language",
+    "description": "Select the display language for the application"
+  },
+  "autoExclude": {
+    "label": "Auto-exclude on deploy",
+    "description": "Automatically add the file to .git/info/exclude when creating a deployment. If disabled, you can add it manually later from the deployment card.",
+    "enabled": "Automatic",
+    "disabled": "Manual"
+  },
+  "tags": {
+    "label": "Manage tags",
+    "description": "View and delete tags. Tags in use by files will remain assigned until removed manually.",
+    "empty": "No tags created yet.",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files"
+  },
+  "appData": {
+    "label": "Application data",
+    "description": "Location where the application stores its database and file versions",
+    "database": "Database",
+    "files": "Managed files",
+    "openFolder": "Open folder",
+    "changeLocation": "Change location",
+    "resetLocation": "Reset to default",
+    "customLocation": "Custom location",
+    "changeDialog": {
+      "title": "Change data location",
+      "newPath": "New location",
+      "copyDb": "Copy database",
+      "copyDbHint": "Copy the existing database to the new location",
+      "copyFiles": "Copy managed files",
+      "copyFilesHint": "Copy all file version history to the new location",
+      "restartWarning": "The application will restart to apply the change",
+      "confirm": "Change and restart"
+    },
+    "resetConfirm": "Reset to default location? The application will restart."
+  },
+  "about": {
+    "label": "About",
+    "version": "Version",
+    "github": "GitHub repository"
+  },
+  "export": {
+    "label": "Export data",
+    "description": "Export all application data to a backup file",
+    "success": "Data exported successfully",
+    "error": "An error occurred while exporting data"
+  },
+  "import": {
+    "label": "Import data",
+    "description": "Import application data from a backup file",
+    "success": "Data imported successfully",
+    "error": "An error occurred while importing data",
+    "confirm": "Are you sure you want to import this data? Existing data will be replaced."
+  },
+  "update": {
+    "checking": "Checking for updates...",
+    "available": "Version {{version}} available",
+    "current": "Current version: {{version}}",
+    "download": "Download",
+    "upToDate": "Up to date ({{version}})",
+    "checkAgain": "Check again",
+    "checkError": "Could not check for updates. Click to retry."
+  }
+}

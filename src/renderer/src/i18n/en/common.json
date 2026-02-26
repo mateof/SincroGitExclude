@@ -1,0 +1,48 @@
+{
+  "app": {
+    "name": "SincroGitExclude",
+    "description": "Manage git-excluded files with version control"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "create": "Create",
+    "edit": "Edit",
+    "close": "Close",
+    "confirm": "Confirm",
+    "export": "Export",
+    "import": "Import",
+    "search": "Search",
+    "refresh": "Refresh",
+    "back": "Back"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "excluded": "Excluded",
+    "notExcluded": "Not excluded",
+    "hasChanges": "Has changes",
+    "synced": "Synced",
+    "noChanges": "No changes",
+    "unknown": "Unknown",
+    "error": "Error",
+    "globallyExcluded": "Global exclude"
+  },
+  "labels": {
+    "name": "Name",
+    "alias": "Alias",
+    "path": "Path",
+    "date": "Date",
+    "actions": "Actions",
+    "status": "Status",
+    "noData": "No data available",
+    "loading": "Loading...",
+    "confirmDelete": "Are you sure you want to delete this item? This action cannot be undone."
+  },
+  "delete": {
+    "deleteFromDisk": "Delete from disk",
+    "keepOnDisk": "Keep on disk",
+    "willDeleteFromDisk": "The deployed file will be deleted from disk"
+  }
+}
