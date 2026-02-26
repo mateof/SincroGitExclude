@@ -1,0 +1,60 @@
+{
+  "title": "Despliegues",
+  "createTitle": "Nuevo despliegue",
+  "editTitle": "Editar despliegue",
+  "fields": {
+    "repoPath": "Ruta del repositorio",
+    "fileRelativePath": "Ruta relativa del archivo",
+    "fileRelativePathHint": "Ruta relativa desde la raiz del repositorio hasta el archivo",
+    "baseDirectoryPath": "Ruta del directorio base",
+    "baseDirectoryPathHint": "Ruta relativa desde la raiz del repositorio hasta el directorio base del conjunto",
+    "sourceBranch": "Rama de origen",
+    "sourceCommit": "Commit de origen",
+    "sourceDeployment": "Despliegue de origen",
+    "sourceDeploymentHint": "Selecciona un despliegue existente como origen",
+    "noSource": "Ninguno (empezar nuevo)",
+    "sourceCommitHint": "Selecciona un commit especifico"
+  },
+  "status": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "excluded": "Excluido",
+    "notExcluded": "No excluido",
+    "hasChanges": "Con cambios",
+    "synced": "Sincronizado"
+  },
+  "actions": {
+    "sync": "Sincronizar",
+    "deactivate": "Desactivar",
+    "reactivate": "Reactivar",
+    "addExclude": "Agregar a excluidos",
+    "removeExclude": "Quitar de excluidos",
+    "viewFile": "Ver fichero",
+    "viewDiff": "Ver diferencias",
+    "commit": "Confirmar",
+    "openFolder": "Abrir en explorador",
+    "history": "Historial",
+    "newDeployment": "Nuevo despliegue desde aqui",
+    "deployFromCommit": "Desplegar este commit",
+    "addDescription": "Añadir descripcion",
+    "descriptionPlaceholder": "Descripcion del despliegue..."
+  },
+  "selectDestinationFolder": "Seleccionar carpeta destino",
+  "selectDestinationFolderHint": "Selecciona la carpeta dentro de un repositorio git donde se desplegaran los archivos",
+  "repoDetected": "Repositorio git detectado",
+  "deployTarget": "Destino del despliegue",
+  "noRepoDetected": "No se detecto repositorio git. El destino debe estar dentro de un repositorio git.",
+  "delete": {
+    "title": "Eliminar despliegue",
+    "warning": "Esto eliminara permanentemente el despliegue y su historial de versiones.",
+    "diskHint": "Elige si tambien quieres eliminar el fichero desplegado del disco:"
+  },
+  "messages": {
+    "created": "Despliegue creado correctamente",
+    "updated": "Despliegue actualizado correctamente",
+    "deactivated": "Despliegue desactivado correctamente",
+    "reactivated": "Despliegue reactivado correctamente",
+    "synced": "Despliegue sincronizado correctamente",
+    "noDeployments": "Aun no hay despliegues. Agregue un despliegue para comenzar a rastrear un archivo en un repositorio."
+  }
+}
