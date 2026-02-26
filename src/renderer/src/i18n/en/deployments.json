@@ -1,0 +1,58 @@
+{
+  "title": "Deployments",
+  "createTitle": "New Deployment",
+  "editTitle": "Edit Deployment",
+  "fields": {
+    "repoPath": "Repository path",
+    "fileRelativePath": "File relative path",
+    "fileRelativePathHint": "Relative path from the repo root to the file",
+    "baseDirectoryPath": "Base directory path",
+    "baseDirectoryPathHint": "Relative path from the repo root to the base directory for bundle files",
+    "sourceBranch": "Source branch",
+    "sourceCommit": "Source commit",
+    "sourceDeployment": "Source deployment",
+    "sourceDeploymentHint": "Select an existing deployment as source",
+    "noSource": "None (start fresh)",
+    "sourceCommitHint": "Select a specific commit"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "excluded": "Excluded",
+    "notExcluded": "Not excluded",
+    "hasChanges": "Has changes",
+    "synced": "Synced"
+  },
+  "actions": {
+    "sync": "Sync",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "addExclude": "Add to exclude",
+    "removeExclude": "Remove from exclude",
+    "viewFile": "View file",
+    "viewDiff": "View diff",
+    "commit": "Commit",
+    "openFolder": "Open in explorer",
+    "history": "History",
+    "newDeployment": "New deployment from here",
+    "deployFromCommit": "Deploy this commit"
+  },
+  "selectDestinationFolder": "Select destination folder",
+  "selectDestinationFolderHint": "Select the folder inside a git repo where the files will be deployed",
+  "repoDetected": "Git repo detected",
+  "deployTarget": "Deploy target",
+  "noRepoDetected": "No git repo detected. The destination must be inside a git repository.",
+  "delete": {
+    "title": "Delete deployment",
+    "warning": "This will permanently remove the deployment and its version history.",
+    "diskHint": "Choose whether to also delete the deployed file from disk:"
+  },
+  "messages": {
+    "created": "Deployment created successfully",
+    "updated": "Deployment updated successfully",
+    "deactivated": "Deployment deactivated successfully",
+    "reactivated": "Deployment reactivated successfully",
+    "synced": "Deployment synced successfully",
+    "noDeployments": "No deployments yet. Add a deployment to start tracking a file in a repository."
+  }
+}

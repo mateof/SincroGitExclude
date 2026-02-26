@@ -1,0 +1,61 @@
+{
+  "title": "Archivos gestionados",
+  "createTitle": "Nuevo archivo",
+  "editTitle": "Editar archivo",
+  "fields": {
+    "name": "Nombre del archivo",
+    "alias": "Alias",
+    "autoIcon": "Icono por tipo",
+    "autoIconHint": "Mostrar icono segun la extension del archivo"
+  },
+  "list": {
+    "name": "Nombre",
+    "alias": "Alias",
+    "deployments": "Despliegues",
+    "lastModified": "Ultima modificacion"
+  },
+  "selectExisting": "Seleccionar archivo existente",
+  "selectExistingHint": "Rellena el nombre automaticamente y crea el despliegue inicial si esta dentro de un repositorio git",
+  "selectFolder": "Seleccionar carpeta",
+  "selectFolderHint": "Todos los archivos de la carpeta se gestionaran como un conjunto",
+  "selectMultiple": "Seleccionar varios archivos",
+  "selectMultipleHint": "Selecciona archivos individuales para gestionar como un conjunto",
+  "selectFileOrFolder": "Seleccionar o soltar archivo / carpeta",
+  "selectFileOrFolderHint": "Haz clic para explorar o arrastra archivos / carpetas aqui",
+  "detectedRepo": "Repositorio git detectado",
+  "noRepoDetected": "No se detecto repositorio git — el despliegue debera agregarse manualmente",
+  "relativePath": "Ruta relativa",
+  "willCreateDeployment": "Se creara automaticamente un despliegue inicial con el repositorio git y la ruta de archivo detectados.",
+  "bundle": "Conjunto",
+  "bundleFiles": "Archivos",
+  "bundleBasePath": "Ruta base",
+  "bundleEntries": "Archivos del conjunto",
+  "sort": {
+    "label": "Ordenar",
+    "name": "Nombre",
+    "alias": "Alias",
+    "created": "Creado",
+    "modified": "Modificado"
+  },
+  "tags": {
+    "label": "Etiquetas",
+    "add": "Agregar etiquetas",
+    "create": "Nueva etiqueta",
+    "namePlaceholder": "Nombre de la etiqueta",
+    "selectColor": "Color",
+    "filterByTag": "Filtrar por etiqueta",
+    "clearFilter": "Limpiar filtro"
+  },
+  "delete": {
+    "title": "Eliminar fichero",
+    "warning": "Esto eliminara permanentemente el fichero de la aplicacion. Todo el historial de versiones y commits se perdera.",
+    "deploymentsHint": "Elige si tambien quieres eliminar los ficheros desplegados del disco para cada despliegue:"
+  },
+  "messages": {
+    "created": "Archivo creado correctamente",
+    "updated": "Archivo actualizado correctamente",
+    "deleted": "Archivo eliminado correctamente",
+    "deleteConfirm": "Esta seguro de que desea eliminar este archivo? Todos los despliegues y commits asociados tambien se eliminaran.",
+    "noFiles": "Aun no hay archivos gestionados. Cree uno para comenzar."
+  }
+}

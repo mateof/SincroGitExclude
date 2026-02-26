@@ -1,0 +1,73 @@
+{
+  "title": "Configuracion",
+  "theme": {
+    "label": "Tema",
+    "description": "Elige entre apariencia clara y oscura",
+    "dark": "Oscuro",
+    "light": "Claro"
+  },
+  "language": {
+    "label": "Idioma",
+    "description": "Seleccione el idioma de la aplicacion"
+  },
+  "autoExclude": {
+    "label": "Auto-excluir al desplegar",
+    "description": "Agregar automaticamente el archivo a .git/info/exclude al crear un despliegue. Si se desactiva, se puede agregar manualmente desde la tarjeta de despliegue.",
+    "enabled": "Automatico",
+    "disabled": "Manual"
+  },
+  "tags": {
+    "label": "Gestionar etiquetas",
+    "description": "Ver y eliminar etiquetas. Las etiquetas en uso se mantendran asignadas hasta que se eliminen manualmente.",
+    "empty": "Aun no se han creado etiquetas.",
+    "fileCount_one": "{{count}} archivo",
+    "fileCount_other": "{{count}} archivos"
+  },
+  "appData": {
+    "label": "Datos de la aplicacion",
+    "description": "Ubicacion donde la aplicacion almacena su base de datos y versiones de archivos",
+    "database": "Base de datos",
+    "files": "Ficheros gestionados",
+    "openFolder": "Abrir carpeta",
+    "changeLocation": "Cambiar ubicacion",
+    "resetLocation": "Restaurar por defecto",
+    "customLocation": "Ubicacion personalizada",
+    "changeDialog": {
+      "title": "Cambiar ubicacion de datos",
+      "newPath": "Nueva ubicacion",
+      "copyDb": "Copiar base de datos",
+      "copyDbHint": "Copiar la base de datos existente a la nueva ubicacion",
+      "copyFiles": "Copiar ficheros gestionados",
+      "copyFilesHint": "Copiar todo el historial de versiones a la nueva ubicacion",
+      "restartWarning": "La aplicacion se reiniciara para aplicar el cambio",
+      "confirm": "Cambiar y reiniciar"
+    },
+    "resetConfirm": "Restaurar ubicacion por defecto? La aplicacion se reiniciara."
+  },
+  "about": {
+    "label": "Acerca de",
+    "version": "Version"
+  },
+  "export": {
+    "label": "Exportar datos",
+    "description": "Exportar todos los datos de la aplicacion a un archivo de respaldo",
+    "success": "Datos exportados correctamente",
+    "error": "Ocurrio un error al exportar los datos"
+  },
+  "import": {
+    "label": "Importar datos",
+    "description": "Importar datos de la aplicacion desde un archivo de respaldo",
+    "success": "Datos importados correctamente",
+    "error": "Ocurrio un error al importar los datos",
+    "confirm": "Esta seguro de que desea importar estos datos? Los datos existentes seran reemplazados."
+  },
+  "update": {
+    "checking": "Comprobando actualizaciones...",
+    "available": "Version {{version}} disponible",
+    "current": "Version actual: {{version}}",
+    "download": "Descargar",
+    "upToDate": "Actualizado ({{version}})",
+    "checkAgain": "Comprobar de nuevo",
+    "checkError": "No se pudo comprobar actualizaciones. Pulsa para reintentar."
+  }
+}
