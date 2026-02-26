@@ -1,0 +1,36 @@
+{
+  "title": "History",
+  "createTitle": "New Commit",
+  "fields": {
+    "message": "Commit message",
+    "tag": "Tag"
+  },
+  "actions": {
+    "commit": "Commit",
+    "checkout": "Checkout",
+    "viewFile": "View file content",
+    "viewDiff": "View diff",
+    "compareDiff": "Compare"
+  },
+  "diff": {
+    "sideBySide": "Side by side",
+    "lineByLine": "Line by line",
+    "noDiff": "No differences found",
+    "filesChanged_one": "{{count}} file changed",
+    "filesChanged_other": "{{count}} files changed",
+    "newFile": "New file",
+    "deletedFile": "Deleted",
+    "lines_one": "{{count}} line",
+    "lines_other": "{{count}} lines",
+    "emptyFile": "(empty file)",
+    "viewCode": "Code",
+    "viewMarkdown": "Rendered"
+  },
+  "messages": {
+    "committed": "Changes committed successfully",
+    "checkedOut": "Version checked out successfully",
+    "noCommits": "No commits yet. Make changes to a file and commit them to start building a history.",
+    "noChanges": "There are no changes to commit",
+    "checkoutConfirm": "Are you sure you want to checkout this version? The current file content will be replaced."
+  }
+}

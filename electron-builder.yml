@@ -1,0 +1,45 @@
+appId: com.sincrogitexclude.app
+productName: SincroGitExclude
+directories:
+  buildResources: resources
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.*'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+npmRebuild: true
+asarUnpack:
+  - 'node_modules/better-sqlite3/**'
+mac:
+  executableName: SincroGitExclude
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  category: public.app-category.developer-tools
+dmg:
+  artifactName: ${name}-${version}-${arch}.${ext}
+linux:
+  executableName: sincrogitexclude
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Development
+appImage:
+  artifactName: ${name}-${version}-${arch}.${ext}
+deb:
+  artifactName: ${name}-${version}-${arch}.${ext}
+win:
+  executableName: SincroGitExclude
+  target:
+    - nsis
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always

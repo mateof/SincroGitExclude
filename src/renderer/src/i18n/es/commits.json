@@ -1,0 +1,36 @@
+{
+  "title": "Historial",
+  "createTitle": "Nuevo commit",
+  "fields": {
+    "message": "Mensaje del commit",
+    "tag": "Etiqueta"
+  },
+  "actions": {
+    "commit": "Confirmar",
+    "checkout": "Restaurar",
+    "viewFile": "Ver contenido del archivo",
+    "viewDiff": "Ver diferencias",
+    "compareDiff": "Comparar"
+  },
+  "diff": {
+    "sideBySide": "Lado a lado",
+    "lineByLine": "Linea por linea",
+    "noDiff": "No se encontraron diferencias",
+    "filesChanged_one": "{{count}} archivo modificado",
+    "filesChanged_other": "{{count}} archivos modificados",
+    "newFile": "Archivo nuevo",
+    "deletedFile": "Eliminado",
+    "lines_one": "{{count}} linea",
+    "lines_other": "{{count}} lineas",
+    "emptyFile": "(archivo vacio)",
+    "viewCode": "Codigo",
+    "viewMarkdown": "Renderizado"
+  },
+  "messages": {
+    "committed": "Cambios confirmados correctamente",
+    "checkedOut": "Version restaurada correctamente",
+    "noCommits": "Aun no hay commits. Realice cambios en un archivo y confirmelos para comenzar a construir un historial.",
+    "noChanges": "No hay cambios para confirmar",
+    "checkoutConfirm": "Esta seguro de que desea restaurar esta version? El contenido actual del archivo sera reemplazado."
+  }
+}

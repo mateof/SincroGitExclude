@@ -1,0 +1,61 @@
+{
+  "title": "Managed Files",
+  "createTitle": "New File",
+  "editTitle": "Edit File",
+  "fields": {
+    "name": "File name",
+    "alias": "Alias",
+    "autoIcon": "File type icon",
+    "autoIconHint": "Show icon based on file extension"
+  },
+  "list": {
+    "name": "Name",
+    "alias": "Alias",
+    "deployments": "Deployments",
+    "lastModified": "Last modified"
+  },
+  "selectExisting": "Select existing file",
+  "selectExistingHint": "Auto-fills name and creates initial deployment if inside a git repo",
+  "selectFolder": "Select folder",
+  "selectFolderHint": "All files in the folder will be managed as a single bundle",
+  "selectMultiple": "Select multiple files",
+  "selectMultipleHint": "Select individual files to manage as a single bundle",
+  "selectFileOrFolder": "Select or drop file / folder",
+  "selectFileOrFolderHint": "Click to browse or drag and drop files / folders here",
+  "detectedRepo": "Git repo detected",
+  "noRepoDetected": "No git repo detected — deployment will need to be added manually",
+  "relativePath": "Relative path",
+  "willCreateDeployment": "An initial deployment will be created automatically with the detected git repo and file path.",
+  "bundle": "Bundle",
+  "bundleFiles": "Files",
+  "bundleBasePath": "Base path",
+  "bundleEntries": "Bundle files",
+  "sort": {
+    "label": "Sort",
+    "name": "Name",
+    "alias": "Alias",
+    "created": "Created",
+    "modified": "Modified"
+  },
+  "tags": {
+    "label": "Tags",
+    "add": "Add tags",
+    "create": "New tag",
+    "namePlaceholder": "Tag name",
+    "selectColor": "Color",
+    "filterByTag": "Filter by tag",
+    "clearFilter": "Clear filter"
+  },
+  "delete": {
+    "title": "Delete file",
+    "warning": "This will permanently remove the file from the application. All version history and commits will be lost.",
+    "deploymentsHint": "Choose whether to also delete deployed files from disk for each deployment:"
+  },
+  "messages": {
+    "created": "File created successfully",
+    "updated": "File updated successfully",
+    "deleted": "File deleted successfully",
+    "deleteConfirm": "Are you sure you want to delete this file? All associated deployments and commits will also be removed.",
+    "noFiles": "No managed files yet. Create one to get started."
+  }
+}
