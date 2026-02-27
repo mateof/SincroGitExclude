@@ -1,6 +1,6 @@
 {
   "name": "sincrogitexclude",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "Manage git-excluded files with version control",
   "main": "./out/main/index.js",
   "author": {

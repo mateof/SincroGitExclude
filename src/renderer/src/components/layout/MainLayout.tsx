@@ -11,7 +11,7 @@ import { SettingsPage } from '@/pages/SettingsPage'
 export function MainLayout() {
   const { currentView, selectedFileId, deselectFile } = useUIStore()
   const { files } = useFileStore()
-  const { markChanged, markDeleted } = useWatcherStore()
+  const { markChanged, markDeleted, refreshChangedFileIds } = useWatcherStore()
 
   // Auto-deselect if selected file no longer exists (e.g. after deletion)
   const fileExists = selectedFileId ? files.some((f) => f.id === selectedFileId) : false
@@ -26,16 +26,18 @@ export function MainLayout() {
   useEffect(() => {
     const unsubChange = window.api.on('watcher:file-changed', (deploymentId: unknown) => {
       markChanged(deploymentId as string)
+      refreshChangedFileIds()
     })
     const unsubDelete = window.api.on('watcher:file-deleted', (deploymentId: unknown) => {
       markDeleted(deploymentId as string)
+      refreshChangedFileIds()
     })
 
     return () => {
       unsubChange()
       unsubDelete()
     }
-  }, [markChanged, markDeleted])
+  }, [markChanged, markDeleted, refreshChangedFileIds])
 
   const renderContent = () => {
     switch (currentView) {
