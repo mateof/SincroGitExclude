@@ -1,8 +1,22 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join, dirname, basename } from 'path'
 import { homedir } from 'os'
-import { execSync } from 'child_process'
+import { execFileSync } from 'child_process'
 import log from 'electron-log'
+
+function findGitBinary(): string {
+  if (process.platform === 'darwin') {
+    const candidates = [
+      '/opt/homebrew/bin/git',
+      '/usr/local/bin/git',
+      '/usr/bin/git'
+    ]
+    for (const p of candidates) {
+      if (existsSync(p)) return p
+    }
+  }
+  return 'git'
+}
 
 export class GitExcludeService {
   private getExcludePath(repoPath: string): string {
@@ -119,7 +133,7 @@ export class GitExcludeService {
   private getGlobalExcludePath(): string | null {
     // Try git config first (works cross-platform, git expands ~ on all OS)
     try {
-      const result = execSync('git config --global core.excludesFile', {
+      const result = execFileSync(findGitBinary(), ['config', '--global', 'core.excludesFile'], {
         encoding: 'utf-8',
         timeout: 5000
       }).trim()

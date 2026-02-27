@@ -1,4 +1,5 @@
 import simpleGit, { SimpleGit, LogResult } from 'simple-git'
+import { existsSync } from 'fs'
 import log from 'electron-log'
 
 export interface CommitLogEntry {
@@ -8,11 +9,27 @@ export interface CommitLogEntry {
   tag?: string
 }
 
+function findGitBinary(): string | undefined {
+  if (process.platform === 'darwin') {
+    const candidates = [
+      '/opt/homebrew/bin/git',  // Apple Silicon
+      '/usr/local/bin/git',     // Intel Homebrew
+      '/usr/bin/git'            // Xcode CLI tools
+    ]
+    for (const p of candidates) {
+      if (existsSync(p)) return p
+    }
+  }
+  return undefined
+}
+
+const gitBinary = findGitBinary()
+
 export class GitService {
   private locks: Map<string, Promise<void>> = new Map()
 
   private getGit(repoPath: string): SimpleGit {
-    return simpleGit(repoPath)
+    return simpleGit(repoPath, { binary: gitBinary })
   }
 
   async withLock<T>(repoPath: string, fn: () => Promise<T>): Promise<T> {

@@ -1,6 +1,6 @@
 {
   "name": "sincrogitexclude",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Manage git-excluded files with version control",
   "main": "./out/main/index.js",
   "author": {
@@ -14,13 +14,13 @@
     "start": "electron-vite preview",
     "postinstall": "electron-rebuild -f -w better-sqlite3",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "build:win": "npm run build && electron-builder --win && npm run rebuild",
-    "build:mac": "npm run build && electron-builder --mac && npm run rebuild",
-    "build:mac-x64": "npm run build && electron-builder --mac --x64 && npm run rebuild",
-    "build:mac-arm64": "npm run build && electron-builder --mac --arm64 && npm run rebuild",
-    "build:linux": "npm run build && electron-builder --linux && npm run rebuild",
-    "build:all": "npm run build && electron-builder --mac --linux --win && npm run rebuild",
-    "build:unpack": "npm run build && electron-builder --win --dir && npm run rebuild"
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:mac-x64": "npm run build && electron-builder --mac --x64",
+    "build:mac-arm64": "npm run build && electron-builder --mac --arm64",
+    "build:linux": "npm run build && electron-builder --linux",
+    "build:all": "npm run build && electron-builder --mac --linux --win",
+    "build:unpack": "npm run build && electron-builder --win --dir"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
