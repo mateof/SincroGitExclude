@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useDeploymentStore } from '@/stores/deployment-store'
 import { useFileStore } from '@/stores/file-store'
 import type { CommitInfo, Deployment, IpcResult } from '@/types'
-import { X, FolderOpen, FolderGit2, AlertCircle } from 'lucide-react'
+import { X, FolderOpen, FolderGit2, AlertCircle, FileSearch } from 'lucide-react'
 
 interface ResolveResult {
   fullPath: string
@@ -130,6 +130,49 @@ export function DeploymentCreateDialog({
       setRepoPath(result.data.repoPath)
       setFolderRelativePath(result.data.relativePath)
     }
+  }
+
+  const handleSelectFile = async () => {
+    const path = await window.api.selectFile()
+    if (!path) return
+
+    setError('')
+
+    // Validate filename matches
+    const fileName = path.split(/[/\\]/).pop() || ''
+    if (fileName !== file?.name) {
+      setError(t('fileNameMismatch', { name: file?.name }))
+      return
+    }
+
+    const result = await window.api.invoke<IpcResult<ResolveResult>>(
+      'dialog:resolve-deploy-target',
+      path
+    )
+
+    if (!result.success || !result.data?.repoPath || !result.data?.relativePath) {
+      setError(t('noRepoDetected'))
+      return
+    }
+
+    // Compute folder relative path (strip filename from relativePath)
+    const parts = result.data.relativePath.split('/')
+    parts.pop()
+    const folder = parts.join('/') || '.'
+
+    // Check not already deployed
+    const fullRelPath = folder === '.' ? file!.name : `${folder}/${file!.name}`
+    const alreadyDeployed = fileDeployments.some(
+      (d) => d.repoPath === result.data!.repoPath && d.fileRelativePath === fullRelPath
+    )
+    if (alreadyDeployed) {
+      setError(t('alreadyDeployed'))
+      return
+    }
+
+    setSelectedFolder(path)
+    setRepoPath(result.data.repoPath)
+    setFolderRelativePath(folder)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -278,6 +321,36 @@ export function DeploymentCreateDialog({
                 </div>
               </div>
             </button>
+
+            {/* Select existing file (only for single files, not bundles) */}
+            {!isBundle && (
+              <>
+                <div className="flex items-center gap-2 my-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[10px] text-muted-foreground uppercase">{t('or')}</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSelectFile}
+                  className={`w-full flex items-center gap-3 px-4 py-3 border-2 border-dashed rounded-lg transition-colors group ${
+                    selectedFolder && !selectedFolder.endsWith('/')
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50 hover:bg-primary/5'
+                  }`}
+                >
+                  <FileSearch className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium group-hover:text-primary transition-colors">
+                      {t('selectExistingFile')}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {t('selectExistingFileHint')}
+                    </div>
+                  </div>
+                </button>
+              </>
+            )}
 
             {/* Detected info */}
             {selectedFolder && (
