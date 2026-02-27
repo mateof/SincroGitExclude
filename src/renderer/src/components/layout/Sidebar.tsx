@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFileStore } from '@/stores/file-store'
 import { useUIStore } from '@/stores/ui-store'
-import type { IpcResult } from '@/types'
+import { useWatcherStore } from '@/stores/watcher-store'
 import { FileList } from '../files/FileList'
 import { FileCreateDialog } from '../files/FileCreateDialog'
 import { Plus, Search, Filter, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
@@ -22,18 +22,12 @@ export function Sidebar() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [showSortMenu, setShowSortMenu] = useState(false)
   const sortRef = useRef<HTMLDivElement>(null)
-  const [changedFileIds, setChangedFileIds] = useState<Set<string>>(new Set())
+  const { changedFileIds, refreshChangedFileIds } = useWatcherStore()
 
   useEffect(() => {
     loadFiles()
     loadTags()
-    window.api
-      .invoke<IpcResult<{ fileIdsWithChanges: string[] }>>('deployments:stats')
-      .then((r) => {
-        if (r.success && r.data?.fileIdsWithChanges) {
-          setChangedFileIds(new Set(r.data.fileIdsWithChanges))
-        }
-      })
+    refreshChangedFileIds()
   }, [loadFiles, loadTags])
 
   useEffect(() => {

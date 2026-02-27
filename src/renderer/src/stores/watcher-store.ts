@@ -3,15 +3,18 @@ import { create } from 'zustand'
 interface WatcherStore {
   changedDeployments: Set<string>
   deletedDeployments: Set<string>
+  changedFileIds: Set<string>
   markChanged: (deploymentId: string) => void
   markDeleted: (deploymentId: string) => void
   clearChanged: (deploymentId: string) => void
   clearAll: () => void
+  refreshChangedFileIds: () => Promise<void>
 }
 
 export const useWatcherStore = create<WatcherStore>((set) => ({
   changedDeployments: new Set(),
   deletedDeployments: new Set(),
+  changedFileIds: new Set(),
 
   markChanged: (deploymentId) =>
     set((s) => {
@@ -35,5 +38,14 @@ export const useWatcherStore = create<WatcherStore>((set) => ({
     }),
 
   clearAll: () =>
-    set({ changedDeployments: new Set(), deletedDeployments: new Set() })
+    set({ changedDeployments: new Set(), deletedDeployments: new Set(), changedFileIds: new Set() }),
+
+  refreshChangedFileIds: async () => {
+    const r = await window.api.invoke<{ success: boolean; data?: { fileIdsWithChanges: string[] } }>(
+      'deployments:stats'
+    )
+    if (r.success && r.data?.fileIdsWithChanges) {
+      set({ changedFileIds: new Set(r.data.fileIdsWithChanges) })
+    }
+  }
 }))

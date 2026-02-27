@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFileStore } from '@/stores/file-store'
 import { useDeploymentStore } from '@/stores/deployment-store'
+import { useWatcherStore } from '@/stores/watcher-store'
 import { FileEditDialog } from '@/components/files/FileEditDialog'
 import { DeploymentList, type CreateSource } from '@/components/deployments/DeploymentList'
 import { CommitHistory } from '@/components/commits/CommitHistory'
@@ -22,6 +23,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
   const { t: tc } = useTranslation('common')
   const { files, deleteFile, loadEntries } = useFileStore()
   const { deployments, loadDeployments } = useDeploymentStore()
+  const { refreshChangedFileIds } = useWatcherStore()
   const file = files.find((f) => f.id === fileId)
 
   const [showEdit, setShowEdit] = useState(false)
@@ -170,6 +172,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
 
   const handleCommitted = () => {
     loadDeployments(fileId)
+    refreshChangedFileIds()
     if (historyDeployment) {
       // Refresh history if visible
       setHistoryDeployment({ ...historyDeployment })
