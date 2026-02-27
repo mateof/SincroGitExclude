@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDeploymentStore } from '@/stores/deployment-store'
+import { useFileStore } from '@/stores/file-store'
 import { useWatcherStore } from '@/stores/watcher-store'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import type { Deployment, IpcResult } from '@/types'
@@ -26,8 +27,21 @@ import {
   X,
   FileX,
   Calendar,
-  Clock
+  Clock,
+  Tag,
+  Plus
 } from 'lucide-react'
+
+const TAG_COLORS = [
+  { name: 'red', value: '#ef4444' },
+  { name: 'orange', value: '#f97316' },
+  { name: 'amber', value: '#f59e0b' },
+  { name: 'green', value: '#22c55e' },
+  { name: 'blue', value: '#3b82f6' },
+  { name: 'purple', value: '#8b5cf6' },
+  { name: 'pink', value: '#ec4899' },
+  { name: 'gray', value: '#6b7280' }
+]
 
 interface DeploymentCardProps {
   deployment: Deployment
@@ -48,12 +62,18 @@ export function DeploymentCard({
 }: DeploymentCardProps) {
   const { t, i18n } = useTranslation('deployments')
   const { t: tc } = useTranslation('common')
-  const { deactivateDeployment, reactivateDeployment, deleteDeployment, checkExclude, updateDescription } =
+  const { deactivateDeployment, reactivateDeployment, deleteDeployment, checkExclude, updateDescription, setDeploymentTags } =
     useDeploymentStore()
+  const { tags: allTags, createTag } = useFileStore()
   const { changedDeployments, deletedDeployments } = useWatcherStore()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
+  const [showTagEditor, setShowTagEditor] = useState(false)
+  const [showTagCreate, setShowTagCreate] = useState(false)
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[4].value)
+  const tagEditorRef = useRef<HTMLDivElement>(null)
 
   const hasWatcherChanges = changedDeployments.has(deployment.id)
   const hasChanges = deployment.hasChanges || hasWatcherChanges
@@ -101,6 +121,38 @@ export function DeploymentCard({
   const cancelEditingDescription = () => {
     setEditingDescription(false)
   }
+
+  const toggleTag = async (tagId: string) => {
+    const currentIds = deployment.tags.map((t) => t.id)
+    const newIds = currentIds.includes(tagId)
+      ? currentIds.filter((id) => id !== tagId)
+      : [...currentIds, tagId]
+    await setDeploymentTags(deployment.id, newIds)
+  }
+
+  const handleCreateTag = async () => {
+    const trimmed = newTagName.trim()
+    if (!trimmed) return
+    const tag = await createTag(trimmed, newTagColor)
+    if (tag) {
+      const currentIds = deployment.tags.map((t) => t.id)
+      await setDeploymentTags(deployment.id, [...currentIds, tag.id])
+      setNewTagName('')
+      setNewTagColor(TAG_COLORS[4].value)
+      setShowTagCreate(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!showTagEditor) return
+    const handleClick = (e: MouseEvent) => {
+      if (tagEditorRef.current && !tagEditorRef.current.contains(e.target as Node)) {
+        setShowTagEditor(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showTagEditor])
 
   return (
     <div
@@ -152,6 +204,22 @@ export function DeploymentCard({
           )}
         </div>
       </div>
+
+      {/* Tags */}
+      {deployment.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {deployment.tags.map((tag) => (
+            <span
+              key={tag.id}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+              style={{ backgroundColor: tag.color + '20', color: tag.color }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+              {tag.name}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Description */}
       <div className="mb-3">
@@ -348,6 +416,113 @@ export function DeploymentCard({
               <Copy className="w-3.5 h-3.5" />
             </button>
 
+            {/* Edit tags */}
+            <div className="relative" ref={tagEditorRef}>
+              <button
+                onClick={() => { setShowTagEditor(!showTagEditor); setShowTagCreate(false) }}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                  deployment.tags.length > 0
+                    ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                    : 'hover:bg-secondary text-muted-foreground'
+                }`}
+                data-tooltip={t('tags.edit')}
+                aria-label={t('tags.edit')}
+              >
+                <Tag className="w-3.5 h-3.5" />
+              </button>
+              {showTagEditor && (
+                <div className="absolute left-0 bottom-full mb-1 z-20 w-52 bg-card border border-border rounded-lg shadow-xl p-2">
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                    {t('tags.edit')}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {allTags.map((tag) => {
+                      const active = deployment.tags.some((dt) => dt.id === tag.id)
+                      return (
+                        <button
+                          key={tag.id}
+                          onClick={() => toggleTag(tag.id)}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-all border"
+                          style={{
+                            backgroundColor: active ? tag.color + '25' : 'transparent',
+                            borderColor: active ? tag.color : 'var(--color-border)',
+                            color: active ? tag.color : 'var(--color-muted-foreground)'
+                          }}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          {tag.name}
+                        </button>
+                      )
+                    })}
+                    {!showTagCreate && (
+                      <button
+                        onClick={() => setShowTagCreate(true)}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] text-muted-foreground border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors"
+                      >
+                        <Plus className="w-2.5 h-2.5" />
+                        {t('tags.create')}
+                      </button>
+                    )}
+                  </div>
+                  {showTagCreate && (
+                    <div className="mt-2 pt-2 border-t border-border space-y-1.5">
+                      <input
+                        type="text"
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); handleCreateTag() }
+                          if (e.key === 'Escape') setShowTagCreate(false)
+                        }}
+                        placeholder={t('tags.namePlaceholder')}
+                        autoFocus
+                        className="w-full px-2 py-1 text-[10px] bg-background rounded border border-border focus:ring-1 focus:ring-primary outline-none"
+                      />
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] text-muted-foreground shrink-0">{t('tags.selectColor')}:</span>
+                        <div className="flex gap-1">
+                          {TAG_COLORS.map((c) => (
+                            <button
+                              key={c.name}
+                              type="button"
+                              onClick={() => setNewTagColor(c.value)}
+                              className="w-4 h-4 rounded-full transition-transform"
+                              style={{
+                                backgroundColor: c.value,
+                                outline: newTagColor === c.value ? '2px solid ' + c.value : 'none',
+                                outlineOffset: '1px',
+                                transform: newTagColor === c.value ? 'scale(1.15)' : 'scale(1)'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowTagCreate(false)}
+                          className="p-1 rounded hover:bg-secondary transition-colors text-muted-foreground"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCreateTag}
+                          disabled={!newTagName.trim()}
+                          className="p-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Deactivate */}
             <button
               onClick={handleDeactivate}
@@ -386,6 +561,113 @@ export function DeploymentCard({
             >
               <History className="w-3.5 h-3.5" />
             </button>
+
+            {/* Edit tags (inactive) */}
+            <div className="relative" ref={tagEditorRef}>
+              <button
+                onClick={() => { setShowTagEditor(!showTagEditor); setShowTagCreate(false) }}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                  deployment.tags.length > 0
+                    ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                    : 'hover:bg-secondary text-muted-foreground'
+                }`}
+                data-tooltip={t('tags.edit')}
+                aria-label={t('tags.edit')}
+              >
+                <Tag className="w-3.5 h-3.5" />
+              </button>
+              {showTagEditor && (
+                <div className="absolute left-0 bottom-full mb-1 z-20 w-52 bg-card border border-border rounded-lg shadow-xl p-2">
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                    {t('tags.edit')}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {allTags.map((tag) => {
+                      const active = deployment.tags.some((dt) => dt.id === tag.id)
+                      return (
+                        <button
+                          key={tag.id}
+                          onClick={() => toggleTag(tag.id)}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-all border"
+                          style={{
+                            backgroundColor: active ? tag.color + '25' : 'transparent',
+                            borderColor: active ? tag.color : 'var(--color-border)',
+                            color: active ? tag.color : 'var(--color-muted-foreground)'
+                          }}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          {tag.name}
+                        </button>
+                      )
+                    })}
+                    {!showTagCreate && (
+                      <button
+                        onClick={() => setShowTagCreate(true)}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] text-muted-foreground border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors"
+                      >
+                        <Plus className="w-2.5 h-2.5" />
+                        {t('tags.create')}
+                      </button>
+                    )}
+                  </div>
+                  {showTagCreate && (
+                    <div className="mt-2 pt-2 border-t border-border space-y-1.5">
+                      <input
+                        type="text"
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); handleCreateTag() }
+                          if (e.key === 'Escape') setShowTagCreate(false)
+                        }}
+                        placeholder={t('tags.namePlaceholder')}
+                        autoFocus
+                        className="w-full px-2 py-1 text-[10px] bg-background rounded border border-border focus:ring-1 focus:ring-primary outline-none"
+                      />
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] text-muted-foreground shrink-0">{t('tags.selectColor')}:</span>
+                        <div className="flex gap-1">
+                          {TAG_COLORS.map((c) => (
+                            <button
+                              key={c.name}
+                              type="button"
+                              onClick={() => setNewTagColor(c.value)}
+                              className="w-4 h-4 rounded-full transition-transform"
+                              style={{
+                                backgroundColor: c.value,
+                                outline: newTagColor === c.value ? '2px solid ' + c.value : 'none',
+                                outlineOffset: '1px',
+                                transform: newTagColor === c.value ? 'scale(1.15)' : 'scale(1)'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowTagCreate(false)}
+                          className="p-1 rounded hover:bg-secondary transition-colors text-muted-foreground"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCreateTag}
+                          disabled={!newTagName.trim()}
+                          className="p-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Delete */}
             <button

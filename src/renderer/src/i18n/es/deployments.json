@@ -51,6 +51,33 @@
   "repoDetected": "Repositorio git detectado",
   "deployTarget": "Destino del despliegue",
   "noRepoDetected": "No se detecto repositorio git. El destino debe estar dentro de un repositorio git.",
+  "search": {
+    "placeholder": "Buscar despliegues..."
+  },
+  "sort": {
+    "label": "Ordenar",
+    "path": "Ruta",
+    "created": "Creacion",
+    "modified": "Modificacion"
+  },
+  "filter": {
+    "label": "Filtrar por estado",
+    "all": "Todos",
+    "active": "Solo activos",
+    "inactive": "Solo inactivos",
+    "hasChanges": "Con cambios",
+    "excluded": "Excluidos",
+    "notExcluded": "No excluidos",
+    "clearFilter": "Limpiar filtros"
+  },
+  "tags": {
+    "edit": "Editar etiquetas",
+    "filterByTag": "Filtrar por etiqueta",
+    "clearFilter": "Limpiar",
+    "create": "Nueva etiqueta",
+    "namePlaceholder": "Nombre de etiqueta",
+    "selectColor": "Color"
+  },
   "delete": {
     "title": "Eliminar despliegue",
     "warning": "Esto eliminara permanentemente el despliegue y su historial de versiones.",

@@ -51,6 +51,33 @@
   "repoDetected": "Git repo detected",
   "deployTarget": "Deploy target",
   "noRepoDetected": "No git repo detected. The destination must be inside a git repository.",
+  "search": {
+    "placeholder": "Search deployments..."
+  },
+  "sort": {
+    "label": "Sort",
+    "path": "Path",
+    "created": "Created",
+    "modified": "Modified"
+  },
+  "filter": {
+    "label": "Filter by status",
+    "all": "All",
+    "active": "Active only",
+    "inactive": "Inactive only",
+    "hasChanges": "With changes",
+    "excluded": "Excluded",
+    "notExcluded": "Not excluded",
+    "clearFilter": "Clear filters"
+  },
+  "tags": {
+    "edit": "Edit tags",
+    "filterByTag": "Filter by tag",
+    "clearFilter": "Clear",
+    "create": "New tag",
+    "namePlaceholder": "Tag name",
+    "selectColor": "Color"
+  },
   "delete": {
     "title": "Delete deployment",
     "warning": "This will permanently remove the deployment and its version history.",

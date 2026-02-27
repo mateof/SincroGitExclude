@@ -89,6 +89,20 @@ const migrations: Migration[] = [
     up: `
       ALTER TABLE deployments ADD COLUMN description TEXT;
     `
+  },
+  {
+    version: 7,
+    description: 'Add deployment_tags junction table',
+    up: `
+      CREATE TABLE IF NOT EXISTS deployment_tags (
+        deployment_id TEXT NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
+        tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+        PRIMARY KEY (deployment_id, tag_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_deployment_tags_deployment_id ON deployment_tags(deployment_id);
+      CREATE INDEX IF NOT EXISTS idx_deployment_tags_tag_id ON deployment_tags(tag_id);
+    `
   }
 ]
 

@@ -127,4 +127,13 @@ export function registerDeploymentHandlers(
       return { success: false, error: (error as Error).message }
     }
   })
+
+  ipcMain.handle('deployments:set-tags', (_, deploymentId: string, tagIds: string[]) => {
+    try {
+      deploymentService.setDeploymentTags(deploymentId, tagIds)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
 }

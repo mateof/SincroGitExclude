@@ -1,3 +1,5 @@
+import type { FileTag } from './file'
+
 export interface Deployment {
   id: string
   fileId: string
@@ -9,6 +11,7 @@ export interface Deployment {
   createdAt: string
   currentCommitHash: string | null
   description: string | null
+  tags: FileTag[]
   // Computed at runtime
   isExcluded?: boolean
   isGloballyExcluded?: boolean

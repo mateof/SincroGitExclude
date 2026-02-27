@@ -6,6 +6,7 @@ import { getDb } from '../database/connection'
 import { GitService } from '../git/git-service'
 import { GitExcludeService } from '../git/git-exclude'
 import { WatcherService } from './watcher-service'
+import type { TagRow } from './file-service'
 import log from 'electron-log'
 
 export interface DeploymentRow {
@@ -19,6 +20,7 @@ export interface DeploymentRow {
   created_at: string
   current_commit_hash: string | null
   description: string | null
+  tags?: TagRow[]
 }
 
 export class DeploymentService {
@@ -198,9 +200,20 @@ export class DeploymentService {
   }
 
   listDeployments(fileId: string): DeploymentRow[] {
-    return getDb()
+    const deployments = getDb()
       .prepare('SELECT * FROM deployments WHERE file_id = ? ORDER BY created_at DESC')
       .all(fileId) as DeploymentRow[]
+
+    const tagStmt = getDb().prepare(
+      `SELECT t.id, t.name, t.color FROM tags t
+       INNER JOIN deployment_tags dt ON dt.tag_id = t.id
+       WHERE dt.deployment_id = ?`
+    )
+    for (const dep of deployments) {
+      dep.tags = tagStmt.all(dep.id) as TagRow[]
+    }
+
+    return deployments
   }
 
   async deactivateDeployment(id: string): Promise<void> {
@@ -484,5 +497,27 @@ export class DeploymentService {
       .run(description, id)
 
     return this.getDeployment(id)!
+  }
+
+  getDeploymentTags(deploymentId: string): TagRow[] {
+    return getDb()
+      .prepare(
+        `SELECT t.id, t.name, t.color FROM tags t
+         INNER JOIN deployment_tags dt ON dt.tag_id = t.id
+         WHERE dt.deployment_id = ?`
+      )
+      .all(deploymentId) as TagRow[]
+  }
+
+  setDeploymentTags(deploymentId: string, tagIds: string[]): void {
+    const db = getDb()
+    const transaction = db.transaction(() => {
+      db.prepare('DELETE FROM deployment_tags WHERE deployment_id = ?').run(deploymentId)
+      const insert = db.prepare('INSERT INTO deployment_tags (deployment_id, tag_id) VALUES (?, ?)')
+      for (const tagId of tagIds) {
+        insert.run(deploymentId, tagId)
+      }
+    })
+    transaction()
   }
 }

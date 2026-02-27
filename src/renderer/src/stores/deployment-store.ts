@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Deployment } from '../types'
 import type { IpcResult } from '../types'
+import { useFileStore } from './file-store'
 
 interface DeploymentStore {
   deployments: Deployment[]
@@ -22,7 +23,17 @@ interface DeploymentStore {
   checkExclude: (id: string) => Promise<boolean>
   updateDeploymentStatus: (id: string, updates: Partial<Deployment>) => void
   updateDescription: (id: string, description: string | null) => Promise<boolean>
+  setDeploymentTags: (deploymentId: string, tagIds: string[]) => Promise<boolean>
   clear: () => void
+}
+
+function mapTags(raw: unknown): { id: string; name: string; color: string }[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((t: Record<string, unknown>) => ({
+    id: t.id as string,
+    name: t.name as string,
+    color: t.color as string
+  }))
 }
 
 function mapDeploymentRow(row: Record<string, unknown>): Deployment {
@@ -36,7 +47,8 @@ function mapDeploymentRow(row: Record<string, unknown>): Deployment {
     lastSyncedAt: (row.last_synced_at as string) || null,
     createdAt: row.created_at as string,
     currentCommitHash: (row.current_commit_hash as string) || null,
-    description: (row.description as string) || null
+    description: (row.description as string) || null,
+    tags: mapTags(row.tags)
   }
 }
 
@@ -191,6 +203,22 @@ export const useDeploymentStore = create<DeploymentStore>((set, get) => ({
       set((s) => ({
         deployments: s.deployments.map((d) =>
           d.id === id ? { ...d, description } : d
+        )
+      }))
+      return true
+    }
+    return false
+  },
+
+  setDeploymentTags: async (deploymentId, tagIds) => {
+    const result = await window.api.invoke<IpcResult>('deployments:set-tags', deploymentId, tagIds)
+    if (result.success) {
+      const { tags } = useFileStore.getState()
+      set((s) => ({
+        deployments: s.deployments.map((d) =>
+          d.id === deploymentId
+            ? { ...d, tags: tags.filter((t) => tagIds.includes(t.id)) }
+            : d
         )
       }))
       return true
