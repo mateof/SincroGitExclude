@@ -13,10 +13,7 @@ asarUnpack:
 mac:
   executableName: SincroGitExclude
   target:
-    - target: dmg
-      arch:
-        - x64
-        - arm64
+    - dmg
   category: public.app-category.developer-tools
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
