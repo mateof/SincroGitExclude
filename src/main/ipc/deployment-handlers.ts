@@ -110,6 +110,15 @@ export function registerDeploymentHandlers(
     }
   })
 
+  ipcMain.handle('deployments:check-file-exists', (_, id: string) => {
+    try {
+      const exists = deploymentService.checkFileExists(id)
+      return { success: true, data: exists }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
   ipcMain.handle('deployments:update-description', (_, id: string, description: string | null) => {
     try {
       const data = deploymentService.updateDescription(id, description)

@@ -13,6 +13,7 @@ export interface Deployment {
   isExcluded?: boolean
   isGloballyExcluded?: boolean
   hasChanges?: boolean
+  fileExists?: boolean
   fullPath?: string
 }
 

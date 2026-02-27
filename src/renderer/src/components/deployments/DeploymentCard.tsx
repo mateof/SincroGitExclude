@@ -23,7 +23,10 @@ import {
   FileCode,
   Pencil,
   Check,
-  X
+  X,
+  FileX,
+  Calendar,
+  Clock
 } from 'lucide-react'
 
 interface DeploymentCardProps {
@@ -43,17 +46,19 @@ export function DeploymentCard({
   onViewFile,
   onNewDeployment
 }: DeploymentCardProps) {
-  const { t } = useTranslation('deployments')
+  const { t, i18n } = useTranslation('deployments')
   const { t: tc } = useTranslation('common')
   const { deactivateDeployment, reactivateDeployment, deleteDeployment, checkExclude, updateDescription } =
     useDeploymentStore()
-  const { changedDeployments } = useWatcherStore()
+  const { changedDeployments, deletedDeployments } = useWatcherStore()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
 
   const hasWatcherChanges = changedDeployments.has(deployment.id)
   const hasChanges = deployment.hasChanges || hasWatcherChanges
+  const isDeleted = deletedDeployments.has(deployment.id)
+  const fileMissing = deployment.fileExists === false || isDeleted
 
   const handleToggleExclude = async () => {
     if (deployment.isExcluded) {
@@ -101,7 +106,9 @@ export function DeploymentCard({
     <div
       className={`border rounded-lg p-4 transition-colors ${
         deployment.isActive
-          ? 'border-border bg-card'
+          ? fileMissing
+            ? 'border-destructive/50 bg-card'
+            : 'border-border bg-card'
           : 'border-border/50 bg-card/50 opacity-60'
       }`}
     >
@@ -195,9 +202,31 @@ export function DeploymentCard({
         )}
       </div>
 
+      {/* Dates */}
+      <div className="flex items-center gap-3 mb-3 text-[10px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <Calendar className="w-3 h-3" />
+          {t('actions.createdAt')} {new Date(deployment.createdAt).toLocaleDateString(i18n.language, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </span>
+        {deployment.lastSyncedAt && (
+          <span className="inline-flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {t('actions.lastModified')} {new Date(deployment.lastSyncedAt).toLocaleDateString(i18n.language, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+      </div>
+
       {/* Indicators */}
       {deployment.isActive && (
         <div className="flex items-center gap-3 mb-3">
+          {/* File missing */}
+          {fileMissing && (
+            <div className="flex items-center gap-1.5">
+              <FileX className="w-3.5 h-3.5 text-destructive" />
+              <span className="text-[10px] text-destructive">{tc('status.fileMissing')}</span>
+            </div>
+          )}
+
           {/* Exclude status */}
           <div className="flex items-center gap-1.5">
             {deployment.isExcluded ? (
@@ -280,17 +309,15 @@ export function DeploymentCard({
             )}
 
             {/* Commit */}
-            <button
-              onClick={() => onCommit(deployment)}
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
-                hasChanges
-                  ? 'bg-primary/10 text-primary hover:bg-primary/20'
-                  : 'hover:bg-secondary text-muted-foreground'
-              }`}
-            >
-              <GitCommitHorizontal className="w-3.5 h-3.5" />
-              {t('actions.commit')}
-            </button>
+            {hasChanges && (
+              <button
+                onClick={() => onCommit(deployment)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors bg-primary/10 text-primary hover:bg-primary/20"
+              >
+                <GitCommitHorizontal className="w-3.5 h-3.5" />
+                {t('actions.commit')}
+              </button>
+            )}
 
             {/* Open folder */}
             <button

@@ -56,14 +56,16 @@ export const useDeploymentStore = create<DeploymentStore>((set, get) => ({
       // Check exclude status and changes for each active deployment
       for (const d of deployments) {
         if (d.isActive) {
-          const [excludeResult, changesResult, globalExcludeResult] = await Promise.all([
+          const [excludeResult, changesResult, globalExcludeResult, existsResult] = await Promise.all([
             window.api.invoke<IpcResult<boolean>>('deployments:check-exclude', d.id),
             window.api.invoke<IpcResult<boolean>>('deployments:check-changes', d.id),
-            window.api.invoke<IpcResult<boolean>>('exclude:check-global', d.id)
+            window.api.invoke<IpcResult<boolean>>('exclude:check-global', d.id),
+            window.api.invoke<IpcResult<boolean>>('deployments:check-file-exists', d.id)
           ])
           d.isExcluded = excludeResult.success ? excludeResult.data : undefined
           d.hasChanges = changesResult.success ? changesResult.data : undefined
           d.isGloballyExcluded = globalExcludeResult.success ? globalExcludeResult.data : undefined
+          d.fileExists = existsResult.success ? existsResult.data : undefined
         }
         d.fullPath = `${d.repoPath}/${d.fileRelativePath}`.replace(/\\/g, '/')
       }

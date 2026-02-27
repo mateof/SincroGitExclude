@@ -37,7 +37,9 @@
     "newDeployment": "Nuevo despliegue desde aqui",
     "deployFromCommit": "Desplegar este commit",
     "addDescription": "Añadir descripcion",
-    "descriptionPlaceholder": "Descripcion del despliegue..."
+    "descriptionPlaceholder": "Descripcion del despliegue...",
+    "createdAt": "Creado",
+    "lastModified": "Modificado"
   },
   "selectDestinationFolder": "Seleccionar carpeta destino",
   "selectDestinationFolderHint": "Selecciona la carpeta dentro de un repositorio git donde se desplegaran los archivos",

@@ -27,7 +27,8 @@
     "noChanges": "No changes",
     "unknown": "Unknown",
     "error": "Error",
-    "globallyExcluded": "Global exclude"
+    "globallyExcluded": "Global exclude",
+    "fileMissing": "File missing"
   },
   "labels": {
     "name": "Name",

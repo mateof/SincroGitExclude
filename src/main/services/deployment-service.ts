@@ -468,6 +468,13 @@ export class DeploymentService {
     )
   }
 
+  checkFileExists(id: string): boolean {
+    const deployment = this.getDeployment(id)
+    if (!deployment) return false
+    const fullPath = join(deployment.repo_path, deployment.file_relative_path)
+    return existsSync(fullPath)
+  }
+
   updateDescription(id: string, description: string | null): DeploymentRow {
     const deployment = this.getDeployment(id)
     if (!deployment) throw new Error('Deployment not found')

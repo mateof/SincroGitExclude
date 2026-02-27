@@ -37,7 +37,9 @@
     "newDeployment": "New deployment from here",
     "deployFromCommit": "Deploy this commit",
     "addDescription": "Add description",
-    "descriptionPlaceholder": "Deployment description..."
+    "descriptionPlaceholder": "Deployment description...",
+    "createdAt": "Created",
+    "lastModified": "Modified"
   },
   "selectDestinationFolder": "Select destination folder",
   "selectDestinationFolderHint": "Select the folder inside a git repo where the files will be deployed",
