@@ -131,6 +131,11 @@ export class GitService {
     }
   }
 
+  async getHeadHash(repoPath: string): Promise<string> {
+    const git = this.getGit(repoPath)
+    return (await git.revparse(['HEAD'])).trim()
+  }
+
   async getDiff(
     repoPath: string,
     hash1: string,

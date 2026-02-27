@@ -34,15 +34,18 @@
     "customLocation": "Ubicacion personalizada",
     "changeDialog": {
       "title": "Cambiar ubicacion de datos",
+      "resetTitle": "Restaurar ubicacion por defecto",
       "newPath": "Nueva ubicacion",
-      "copyDb": "Copiar base de datos",
-      "copyDbHint": "Copiar la base de datos existente a la nueva ubicacion",
-      "copyFiles": "Copiar ficheros gestionados",
-      "copyFilesHint": "Copiar todo el historial de versiones a la nueva ubicacion",
+      "modeKeep": "Mantener datos existentes",
+      "modeKeepHint": "Usar los datos que ya se encuentran en esta ubicacion",
+      "modeTransfer": "Transferir datos actuales",
+      "modeTransferHint": "Copiar la base de datos y ficheros actuales a esta ubicacion",
+      "modeFresh": "Empezar de cero",
+      "modeFreshHint": "Comenzar con una base de datos vacia y sin ficheros",
+      "existingDataDetected": "Se han detectado datos de la aplicacion en esta ubicacion",
       "restartWarning": "La aplicacion se reiniciara para aplicar el cambio",
-      "confirm": "Cambiar y reiniciar"
-    },
-    "resetConfirm": "Restaurar ubicacion por defecto? La aplicacion se reiniciara."
+      "confirm": "Confirmar y reiniciar"
+    }
   },
   "about": {
     "label": "Acerca de",

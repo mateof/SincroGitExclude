@@ -1,5 +1,5 @@
 import { ipcMain, dialog, shell, app, BrowserWindow } from 'electron'
-import { existsSync, readdirSync, statSync, mkdirSync, cpSync, writeFileSync, unlinkSync } from 'fs'
+import { existsSync, readdirSync, statSync, mkdirSync, cpSync, writeFileSync, unlinkSync, rmSync } from 'fs'
 import { join, dirname, basename, relative, sep } from 'path'
 import {
   APP_DATA_DIR,
@@ -8,7 +8,17 @@ import {
   DB_PATH,
   FILES_DIR
 } from '../app-paths'
+import { closeDb } from '../database/connection'
 import log from 'electron-log'
+
+function relaunchApp(): void {
+  closeDb()
+  if (app.isPackaged) {
+    app.relaunch()
+  }
+  BrowserWindow.getAllWindows().forEach((w) => w.destroy())
+  app.exit(0)
+}
 
 /**
  * Walk up from a file path to find the nearest parent directory that contains .git
@@ -372,6 +382,18 @@ export function registerAppHandlers(): void {
     }
   })
 
+  // Check if a directory contains existing application data
+  ipcMain.handle('app:check-data-exists', async (_, dirPath: string) => {
+    try {
+      const hasDb = existsSync(join(dirPath, 'sincrogitexclude.db'))
+      const filesPath = join(dirPath, 'files')
+      const hasFiles = existsSync(filesPath) && readdirSync(filesPath).length > 0
+      return { success: true, data: { hasData: hasDb || hasFiles, hasDb, hasFiles } }
+    } catch {
+      return { success: true, data: { hasData: false, hasDb: false, hasFiles: false } }
+    }
+  })
+
   // Get current data paths
   ipcMain.handle('app:get-paths', async () => {
     return {
@@ -380,6 +402,7 @@ export function registerAppHandlers(): void {
         dbPath: DB_PATH,
         filesDir: FILES_DIR,
         appDataDir: APP_DATA_DIR,
+        defaultDataDir: DEFAULT_DATA_DIR,
         isCustom: APP_DATA_DIR !== DEFAULT_DATA_DIR,
         appVersion: app.getVersion()
       }
@@ -397,47 +420,49 @@ export function registerAppHandlers(): void {
   })
 
   // Change the data directory location
-  ipcMain.handle(
-    'app:change-data-dir',
-    async (_, newDir: string, copyDb: boolean, copyFiles: boolean) => {
-      try {
-        if (!existsSync(newDir) || !statSync(newDir).isDirectory()) {
-          return { success: false, error: 'Invalid directory' }
-        }
+  ipcMain.handle('app:change-data-dir', async (_, newDir: string, mode: string) => {
+    try {
+      if (!existsSync(newDir) || !statSync(newDir).isDirectory()) {
+        return { success: false, error: 'Invalid directory' }
+      }
 
-        // Create subdirectories
-        mkdirSync(join(newDir, 'files'), { recursive: true })
-        mkdirSync(join(newDir, 'temp'), { recursive: true })
+      mkdirSync(join(newDir, 'files'), { recursive: true })
+      mkdirSync(join(newDir, 'temp'), { recursive: true })
 
-        // Copy database
-        if (copyDb && existsSync(DB_PATH)) {
+      if (mode === 'transfer') {
+        if (existsSync(DB_PATH)) {
           cpSync(DB_PATH, join(newDir, 'sincrogitexclude.db'))
-          // Also copy WAL/SHM if present
           const walPath = DB_PATH + '-wal'
           const shmPath = DB_PATH + '-shm'
           if (existsSync(walPath)) cpSync(walPath, join(newDir, 'sincrogitexclude.db-wal'))
           if (existsSync(shmPath)) cpSync(shmPath, join(newDir, 'sincrogitexclude.db-shm'))
         }
-
-        // Copy files directory
-        if (copyFiles && existsSync(FILES_DIR)) {
+        if (existsSync(FILES_DIR)) {
           cpSync(FILES_DIR, join(newDir, 'files'), { recursive: true })
         }
-
-        // Save config
-        writeFileSync(CONFIG_FILE_PATH, JSON.stringify({ dataDir: newDir }, null, 2))
-        log.info(`Data directory changed to: ${newDir}`)
-
-        // Relaunch
-        app.relaunch()
-        app.quit()
-
-        return { success: true }
-      } catch (error) {
-        return { success: false, error: (error as Error).message }
+      } else if (mode === 'fresh') {
+        // Remove existing data at target so the app starts clean
+        const targetDb = join(newDir, 'sincrogitexclude.db')
+        if (existsSync(targetDb)) unlinkSync(targetDb)
+        if (existsSync(targetDb + '-wal')) unlinkSync(targetDb + '-wal')
+        if (existsSync(targetDb + '-shm')) unlinkSync(targetDb + '-shm')
+        const targetFiles = join(newDir, 'files')
+        if (existsSync(targetFiles)) {
+          rmSync(targetFiles, { recursive: true })
+          mkdirSync(targetFiles, { recursive: true })
+        }
       }
+      // mode === 'keep' → use existing data at target
+
+      writeFileSync(CONFIG_FILE_PATH, JSON.stringify({ dataDir: newDir }, null, 2))
+      log.info(`Data directory changed to: ${newDir} (mode: ${mode})`)
+
+      relaunchApp()
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
     }
-  )
+  })
 
   // Open external URL in default browser
   ipcMain.handle('shell:open-external', async (_, url: string) => {
@@ -450,14 +475,40 @@ export function registerAppHandlers(): void {
   })
 
   // Reset data directory to default
-  ipcMain.handle('app:reset-data-dir', async () => {
+  ipcMain.handle('app:reset-data-dir', async (_, mode: string) => {
     try {
+      if (mode === 'transfer') {
+        mkdirSync(join(DEFAULT_DATA_DIR, 'files'), { recursive: true })
+        if (existsSync(DB_PATH)) {
+          cpSync(DB_PATH, join(DEFAULT_DATA_DIR, 'sincrogitexclude.db'))
+          const walPath = DB_PATH + '-wal'
+          const shmPath = DB_PATH + '-shm'
+          if (existsSync(walPath)) cpSync(walPath, join(DEFAULT_DATA_DIR, 'sincrogitexclude.db-wal'))
+          if (existsSync(shmPath)) cpSync(shmPath, join(DEFAULT_DATA_DIR, 'sincrogitexclude.db-shm'))
+        }
+        if (existsSync(FILES_DIR)) {
+          cpSync(FILES_DIR, join(DEFAULT_DATA_DIR, 'files'), { recursive: true })
+        }
+      } else if (mode === 'fresh') {
+        // Remove existing data at default location so the app starts clean
+        const defaultDb = join(DEFAULT_DATA_DIR, 'sincrogitexclude.db')
+        if (existsSync(defaultDb)) unlinkSync(defaultDb)
+        if (existsSync(defaultDb + '-wal')) unlinkSync(defaultDb + '-wal')
+        if (existsSync(defaultDb + '-shm')) unlinkSync(defaultDb + '-shm')
+        const defaultFiles = join(DEFAULT_DATA_DIR, 'files')
+        if (existsSync(defaultFiles)) {
+          rmSync(defaultFiles, { recursive: true })
+          mkdirSync(defaultFiles, { recursive: true })
+        }
+      }
+      // mode === 'keep' → use existing data at default location
+
       if (existsSync(CONFIG_FILE_PATH)) {
         unlinkSync(CONFIG_FILE_PATH)
       }
-      log.info('Data directory reset to default')
-      app.relaunch()
-      app.quit()
+      log.info(`Data directory reset to default (mode: ${mode})`)
+
+      relaunchApp()
       return { success: true }
     } catch (error) {
       return { success: false, error: (error as Error).message }

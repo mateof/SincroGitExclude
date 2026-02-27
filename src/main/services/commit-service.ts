@@ -350,4 +350,91 @@ export class CommitService {
     const content = await this.gitService.getFileAtCommit(internalRepoPath, commitHash, 'content')
     return [{ path: deployment.file_relative_path, content }]
   }
+
+  async getCrossDiff(
+    targetDeploymentId: string,
+    sourceCommitHash: string
+  ): Promise<string> {
+    const target = this.getDeployment(targetDeploymentId)
+    const internalRepoPath = join(FILES_DIR, target.file_id)
+    const fileType = this.getFileType(target.file_id)
+    const filterContent = fileType !== 'bundle'
+
+    return this.gitService.withLock(internalRepoPath, async () => {
+      await this.gitService.checkout(internalRepoPath, target.branch_name)
+      const targetHead = await this.gitService.getHeadHash(internalRepoPath)
+      return this.gitService.getDiff(internalRepoPath, targetHead, sourceCommitHash, filterContent)
+    })
+  }
+
+  async applyFromCommit(
+    targetDeploymentId: string,
+    sourceCommitHash: string,
+    message?: string
+  ): Promise<CommitLogEntry> {
+    const target = this.getDeployment(targetDeploymentId)
+    const internalRepoPath = join(FILES_DIR, target.file_id)
+    const fileType = this.getFileType(target.file_id)
+    const isBundle = fileType === 'bundle'
+
+    return this.gitService.withLock(internalRepoPath, async () => {
+      await this.gitService.checkout(internalRepoPath, target.branch_name)
+
+      if (isBundle) {
+        const deployBasePath = join(target.repo_path, target.file_relative_path)
+        const files = await this.gitService.listFilesAtCommit(internalRepoPath, sourceCommitHash)
+
+        for (const relPath of files) {
+          const content = await this.gitService.getFileAtCommit(
+            internalRepoPath,
+            sourceCommitHash,
+            relPath
+          )
+          const deployedPath = join(deployBasePath, relPath)
+          mkdirSync(dirname(deployedPath), { recursive: true })
+          writeFileSync(deployedPath, content, 'utf-8')
+          writeFileSync(join(internalRepoPath, relPath), content, 'utf-8')
+        }
+      } else {
+        const deployedFullPath = join(target.repo_path, target.file_relative_path)
+        const content = await this.gitService.getFileAtCommit(
+          internalRepoPath,
+          sourceCommitHash,
+          'content'
+        )
+        writeFileSync(deployedFullPath, content, 'utf-8')
+        writeFileSync(join(internalRepoPath, 'content'), content, 'utf-8')
+      }
+
+      const commitMsg = message || `Applied from ${sourceCommitHash.substring(0, 7)}`
+      const commitHash = isBundle
+        ? await this.gitService.addAllAndCommit(internalRepoPath, commitMsg)
+        : await this.gitService.addAndCommit(internalRepoPath, 'content', commitMsg)
+
+      getDb()
+        .prepare("UPDATE deployments SET last_synced_at = datetime('now'), current_commit_hash = ? WHERE id = ?")
+        .run(commitHash, targetDeploymentId)
+
+      log.info(`Applied ${sourceCommitHash.substring(0, 7)} to deployment ${targetDeploymentId}: ${commitMsg}`)
+
+      return {
+        hash: commitHash,
+        message: commitMsg,
+        date: new Date().toISOString()
+      }
+    })
+  }
+
+  async discardChanges(deploymentId: string): Promise<void> {
+    const deployment = this.getDeployment(deploymentId)
+    const internalRepoPath = join(FILES_DIR, deployment.file_id)
+
+    const headHash = await this.gitService.withLock(internalRepoPath, async () => {
+      await this.gitService.checkout(internalRepoPath, deployment.branch_name)
+      return this.gitService.getHeadHash(internalRepoPath)
+    })
+
+    await this.checkoutToCommit(deploymentId, headHash)
+    log.info(`Discarded changes for deployment ${deploymentId}`)
+  }
 }

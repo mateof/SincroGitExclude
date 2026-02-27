@@ -41,7 +41,17 @@
     "addDescription": "Add description",
     "descriptionPlaceholder": "Deployment description...",
     "createdAt": "Created",
-    "lastModified": "Modified"
+    "lastModified": "Modified",
+    "applyFrom": "Apply from another deployment",
+    "applyFromTitle": "Apply from deployment",
+    "selectSourceDeployment": "Source deployment",
+    "selectSourceCommit": "Source commit",
+    "applyChanges": "Apply",
+    "noOtherDeployments": "No other active deployments available",
+    "noDiffAvailable": "No differences — content is identical",
+    "applySuccess": "Changes applied successfully",
+    "discardChanges": "Discard changes",
+    "discardConfirm": "This will revert the deployed file to its last committed state. Unsaved changes will be lost."
   },
   "selectDestinationFolder": "Select destination folder",
   "selectDestinationFolderHint": "Select the folder inside a git repo where the files will be deployed",

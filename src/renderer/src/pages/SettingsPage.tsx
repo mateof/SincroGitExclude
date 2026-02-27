@@ -32,14 +32,15 @@ export function SettingsPage() {
   const [autoExclude, setAutoExclude] = useState(() => localStorage.getItem('autoExclude') !== 'false')
   const [confirmDeleteTagId, setConfirmDeleteTagId] = useState<string | null>(null)
   const [exportLoading, setExportLoading] = useState(false)
-  const [paths, setPaths] = useState<{ dbPath: string; filesDir: string; appDataDir: string; isCustom: boolean; appVersion: string } | null>(null)
+  const [paths, setPaths] = useState<{ dbPath: string; filesDir: string; appDataDir: string; defaultDataDir: string; isCustom: boolean; appVersion: string } | null>(null)
   const [changeDirOpen, setChangeDirOpen] = useState(false)
   const [newDir, setNewDir] = useState('')
-  const [confirmResetDir, setConfirmResetDir] = useState(false)
+  const [targetHasData, setTargetHasData] = useState(false)
+  const [isResetDialog, setIsResetDialog] = useState(false)
 
   useEffect(() => {
     loadTags()
-    window.api.invoke<IpcResult<{ dbPath: string; filesDir: string; appDataDir: string; isCustom: boolean; appVersion: string }>>('app:get-paths').then((r) => {
+    window.api.invoke<IpcResult<{ dbPath: string; filesDir: string; appDataDir: string; defaultDataDir: string; isCustom: boolean; appVersion: string }>>('app:get-paths').then((r) => {
       if (r.success && r.data) setPaths(r.data)
     })
   }, [loadTags])
@@ -70,17 +71,21 @@ export function SettingsPage() {
   const handleChangeDir = async () => {
     const dir = await window.api.selectDirectory()
     if (!dir) return
+
+    const check = await window.api.invoke<IpcResult<{ hasData: boolean }>>('app:check-data-exists', dir)
     setNewDir(dir)
+    setTargetHasData(check.success && check.data?.hasData === true)
+    setIsResetDialog(false)
     setChangeDirOpen(true)
   }
 
   const handleResetDir = async () => {
-    if (!confirmResetDir) {
-      setConfirmResetDir(true)
-      setTimeout(() => setConfirmResetDir(false), 3000)
-      return
-    }
-    await window.api.invoke<IpcResult>('app:reset-data-dir')
+    if (!paths) return
+    const check = await window.api.invoke<IpcResult<{ hasData: boolean }>>('app:check-data-exists', paths.defaultDataDir)
+    setNewDir(paths.defaultDataDir)
+    setTargetHasData(check.success && check.data?.hasData === true)
+    setIsResetDialog(true)
+    setChangeDirOpen(true)
   }
 
   const handleExport = async () => {
@@ -291,14 +296,10 @@ export function SettingsPage() {
               {paths.isCustom && (
                 <button
                   onClick={handleResetDir}
-                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors ${
-                    confirmResetDir
-                      ? 'bg-destructive text-destructive-foreground'
-                      : 'bg-secondary hover:bg-muted'
-                  }`}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors bg-secondary hover:bg-muted"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  {confirmResetDir ? t('appData.resetConfirm') : t('appData.resetLocation')}
+                  {t('appData.resetLocation')}
                 </button>
               )}
             </div>
@@ -429,7 +430,9 @@ export function SettingsPage() {
       <DataDirChangeDialog
         open={changeDirOpen}
         onOpenChange={setChangeDirOpen}
-        newDir={newDir}
+        targetDir={newDir}
+        targetHasData={targetHasData}
+        isReset={isResetDialog}
       />
     </div>
   )

@@ -34,15 +34,18 @@
     "customLocation": "Custom location",
     "changeDialog": {
       "title": "Change data location",
+      "resetTitle": "Restore default location",
       "newPath": "New location",
-      "copyDb": "Copy database",
-      "copyDbHint": "Copy the existing database to the new location",
-      "copyFiles": "Copy managed files",
-      "copyFilesHint": "Copy all file version history to the new location",
+      "modeKeep": "Keep existing data",
+      "modeKeepHint": "Use the data already present at this location",
+      "modeTransfer": "Transfer current data",
+      "modeTransferHint": "Copy your current database and files to this location",
+      "modeFresh": "Start fresh",
+      "modeFreshHint": "Begin with an empty database and no files",
+      "existingDataDetected": "Existing application data detected at this location",
       "restartWarning": "The application will restart to apply the change",
-      "confirm": "Change and restart"
-    },
-    "resetConfirm": "Reset to default location? The application will restart."
+      "confirm": "Confirm and restart"
+    }
   },
   "about": {
     "label": "About",

@@ -41,7 +41,17 @@
     "addDescription": "Añadir descripcion",
     "descriptionPlaceholder": "Descripcion del despliegue...",
     "createdAt": "Creado",
-    "lastModified": "Modificado"
+    "lastModified": "Modificado",
+    "applyFrom": "Traer de otro despliegue",
+    "applyFromTitle": "Traer de despliegue",
+    "selectSourceDeployment": "Despliegue origen",
+    "selectSourceCommit": "Commit de origen",
+    "applyChanges": "Aplicar",
+    "noOtherDeployments": "No hay otros despliegues activos disponibles",
+    "noDiffAvailable": "Sin diferencias — el contenido es identico",
+    "applySuccess": "Cambios aplicados correctamente",
+    "discardChanges": "Descartar cambios",
+    "discardConfirm": "Esto revertira el fichero desplegado a su ultimo estado confirmado. Los cambios no guardados se perderan."
   },
   "selectDestinationFolder": "Seleccionar carpeta destino",
   "selectDestinationFolderHint": "Selecciona la carpeta dentro de un repositorio git donde se desplegaran los archivos",

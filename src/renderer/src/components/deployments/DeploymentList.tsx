@@ -31,6 +31,7 @@ interface DeploymentListProps {
   onCommit: (deployment: Deployment) => void
   onViewDiff: (deployment: Deployment) => void
   onViewFile: (deployment: Deployment) => void
+  onApplyFrom: (deployment: Deployment) => void
   createSource: CreateSource | null
   onCreateSourceChange: (source: CreateSource | null) => void
 }
@@ -41,6 +42,7 @@ export function DeploymentList({
   onCommit,
   onViewDiff,
   onViewFile,
+  onApplyFrom,
   createSource,
   onCreateSourceChange
 }: DeploymentListProps) {
@@ -366,6 +368,7 @@ export function DeploymentList({
               onViewDiff={onViewDiff}
               onViewFile={onViewFile}
               onNewDeployment={(deploymentId) => onCreateSourceChange({ deploymentId })}
+              onApplyFrom={onApplyFrom}
             />
           ))}
         </div>

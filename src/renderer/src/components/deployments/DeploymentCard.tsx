@@ -32,7 +32,9 @@ import {
   Plus,
   BookMarked,
   BookPlus,
-  BookX
+  BookX,
+  GitMerge,
+  Undo2
 } from 'lucide-react'
 
 const TAG_COLORS = [
@@ -53,6 +55,7 @@ interface DeploymentCardProps {
   onViewDiff: (deployment: Deployment) => void
   onViewFile: (deployment: Deployment) => void
   onNewDeployment: (deploymentId: string) => void
+  onApplyFrom: (deployment: Deployment) => void
 }
 
 export function DeploymentCard({
@@ -61,14 +64,15 @@ export function DeploymentCard({
   onCommit,
   onViewDiff,
   onViewFile,
-  onNewDeployment
+  onNewDeployment,
+  onApplyFrom
 }: DeploymentCardProps) {
   const { t, i18n } = useTranslation('deployments')
   const { t: tc } = useTranslation('common')
-  const { deactivateDeployment, reactivateDeployment, deleteDeployment, checkExclude, checkGitIgnore, updateDescription, setDeploymentTags } =
+  const { deactivateDeployment, reactivateDeployment, deleteDeployment, checkExclude, checkGitIgnore, checkChanges, updateDescription, setDeploymentTags } =
     useDeploymentStore()
   const { tags: allTags, createTag } = useFileStore()
-  const { changedDeployments, deletedDeployments } = useWatcherStore()
+  const { changedDeployments, deletedDeployments, clearChanged } = useWatcherStore()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
@@ -99,6 +103,14 @@ export function DeploymentCard({
       await window.api.invoke<IpcResult>('gitignore:add', deployment.id)
     }
     await checkGitIgnore(deployment.id)
+  }
+
+  const handleDiscard = async () => {
+    const result = await window.api.invoke<IpcResult>('commits:discard', deployment.id)
+    if (result.success) {
+      clearChanged(deployment.id)
+      await checkChanges(deployment.id)
+    }
   }
 
   const handleDeactivate = async () => {
@@ -398,6 +410,7 @@ export function DeploymentCard({
             <button
               onClick={() => onViewFile(deployment)}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-secondary transition-colors text-muted-foreground"
+              data-tooltip={t('actions.viewFile')}
             >
               <FileCode className="w-3.5 h-3.5" />
               {t('actions.viewFile')}
@@ -408,6 +421,7 @@ export function DeploymentCard({
               <button
                 onClick={() => onViewDiff(deployment)}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-secondary transition-colors text-muted-foreground"
+                data-tooltip={t('actions.viewDiff')}
               >
                 <Eye className="w-3.5 h-3.5" />
                 {t('actions.viewDiff')}
@@ -419,9 +433,23 @@ export function DeploymentCard({
               <button
                 onClick={() => onCommit(deployment)}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors bg-primary/10 text-primary hover:bg-primary/20"
+                data-tooltip={t('actions.commit')}
               >
                 <GitCommitHorizontal className="w-3.5 h-3.5" />
                 {t('actions.commit')}
+              </button>
+            )}
+
+            {/* Discard changes */}
+            {hasChanges && (
+              <button
+                onClick={handleDiscard}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                data-tooltip={t('actions.discardConfirm')}
+                aria-label={t('actions.discardChanges')}
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                {t('actions.discardChanges')}
               </button>
             )}
 
@@ -439,10 +467,23 @@ export function DeploymentCard({
             <button
               onClick={() => onViewHistory(deployment)}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-secondary transition-colors text-muted-foreground"
+              data-tooltip={t('actions.history')}
             >
               <History className="w-3.5 h-3.5" />
               {t('actions.history')}
             </button>
+
+            {/* Apply from another deployment */}
+            {!hasChanges && (
+              <button
+                onClick={() => onApplyFrom(deployment)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                data-tooltip={t('actions.applyFrom')}
+                aria-label={t('actions.applyFrom')}
+              >
+                <GitMerge className="w-3.5 h-3.5" />
+              </button>
+            )}
 
             {/* New deployment from this one */}
             <button
@@ -565,6 +606,7 @@ export function DeploymentCard({
             <button
               onClick={handleDeactivate}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors ml-auto"
+              data-tooltip={t('actions.deactivate')}
             >
               <PowerOff className="w-3.5 h-3.5" />
             </button>
@@ -577,6 +619,7 @@ export function DeploymentCard({
             <button
               onClick={handleReactivate}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-success/10 text-muted-foreground hover:text-success transition-colors"
+              data-tooltip={t('actions.reactivate')}
             >
               <Power className="w-3.5 h-3.5" />
               {t('actions.reactivate')}
@@ -596,6 +639,7 @@ export function DeploymentCard({
             <button
               onClick={() => onViewHistory(deployment)}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-secondary transition-colors text-muted-foreground"
+              data-tooltip={t('actions.history')}
             >
               <History className="w-3.5 h-3.5" />
             </button>
@@ -711,6 +755,7 @@ export function DeploymentCard({
             <button
               onClick={() => setShowDeleteDialog(true)}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ml-auto hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+              data-tooltip={tc('actions.delete')}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>

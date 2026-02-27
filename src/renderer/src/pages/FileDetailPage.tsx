@@ -11,6 +11,7 @@ import { CheckoutConfirm } from '@/components/commits/CheckoutConfirm'
 import { DiffModal } from '@/components/diff/DiffModal'
 import { FileContentModal, type FileContentEntry } from '@/components/diff/FileContentModal'
 import { DeleteConfirmDialog } from '@/components/deployments/DeleteConfirmDialog'
+import { ApplyFromDialog } from '@/components/deployments/ApplyFromDialog'
 import type { Deployment, CommitInfo, IpcResult } from '@/types'
 import { Pencil, Trash2, ArrowLeft, FolderArchive, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -71,6 +72,9 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
   const [fileModalOpen, setFileModalOpen] = useState(false)
   const [fileContentEntries, setFileContentEntries] = useState<FileContentEntry[]>([])
   const [fileContentTitle, setFileContentTitle] = useState('')
+
+  // Apply from dialog state
+  const [applyFromDeployment, setApplyFromDeployment] = useState<Deployment | null>(null)
 
   if (!file) {
     return null
@@ -179,6 +183,16 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     }
   }
 
+  const handleApplyFrom = (deployment: Deployment) => {
+    setApplyFromDeployment(deployment)
+  }
+
+  const handleApplied = () => {
+    loadDeployments(fileId)
+    refreshChangedFileIds()
+    setApplyFromDeployment(null)
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* File header */}
@@ -275,6 +289,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
           onCommit={handleCommit}
           onViewDiff={handleViewDiff}
           onViewFile={handleViewCurrentFile}
+          onApplyFrom={handleApplyFrom}
           createSource={createSource}
           onCreateSourceChange={setCreateSource}
         />
@@ -358,6 +373,16 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
           deployment={checkoutDeployment}
           commit={checkoutCommit}
           onCheckedOut={handleCheckedOut}
+        />
+      )}
+
+      {applyFromDeployment && (
+        <ApplyFromDialog
+          open={!!applyFromDeployment}
+          onOpenChange={(open) => !open && setApplyFromDeployment(null)}
+          targetDeployment={applyFromDeployment}
+          allDeployments={deployments}
+          onApplied={handleApplied}
         />
       )}
     </div>

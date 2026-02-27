@@ -87,4 +87,37 @@ export function registerCommitHandlers(commitService: CommitService): void {
       }
     }
   )
+
+  ipcMain.handle(
+    'commits:cross-diff',
+    async (_, targetDeploymentId: string, sourceCommitHash: string) => {
+      try {
+        const data = await commitService.getCrossDiff(targetDeploymentId, sourceCommitHash)
+        return { success: true, data }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'commits:apply-from',
+    async (_, targetDeploymentId: string, sourceCommitHash: string, message?: string) => {
+      try {
+        const data = await commitService.applyFromCommit(targetDeploymentId, sourceCommitHash, message)
+        return { success: true, data }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
+
+  ipcMain.handle('commits:discard', async (_, deploymentId: string) => {
+    try {
+      await commitService.discardChanges(deploymentId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
 }
