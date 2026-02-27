@@ -117,6 +117,70 @@ export function registerExcludeHandlers(
     }
   })
 
+  // --- .gitignore handlers ---
+
+  ipcMain.handle('gitignore:check', async (_, deploymentId: string) => {
+    try {
+      const deployment = getDb()
+        .prepare('SELECT * FROM deployments WHERE id = ?')
+        .get(deploymentId) as DeploymentRow | undefined
+
+      if (!deployment) return { success: false, error: 'Deployment not found' }
+
+      const fileType = getFileType(deployment.file_id)
+      // For bundles, check if the base directory is in .gitignore
+      const pathToCheck = fileType === 'bundle'
+        ? deployment.file_relative_path.replace(/[\\/]+$/, '') + '/'
+        : deployment.file_relative_path
+
+      const isIgnored = excludeService.isInGitIgnore(deployment.repo_path, pathToCheck)
+      return { success: true, data: isIgnored }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('gitignore:add', async (_, deploymentId: string) => {
+    try {
+      const deployment = getDb()
+        .prepare('SELECT * FROM deployments WHERE id = ?')
+        .get(deploymentId) as DeploymentRow | undefined
+
+      if (!deployment) return { success: false, error: 'Deployment not found' }
+
+      const fileType = getFileType(deployment.file_id)
+      // For bundles, add directory with trailing slash
+      const pathToAdd = fileType === 'bundle'
+        ? deployment.file_relative_path.replace(/[\\/]+$/, '') + '/'
+        : deployment.file_relative_path
+
+      excludeService.addToGitIgnore(deployment.repo_path, pathToAdd, deploymentId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('gitignore:remove', async (_, deploymentId: string) => {
+    try {
+      const deployment = getDb()
+        .prepare('SELECT * FROM deployments WHERE id = ?')
+        .get(deploymentId) as DeploymentRow | undefined
+
+      if (!deployment) return { success: false, error: 'Deployment not found' }
+
+      const fileType = getFileType(deployment.file_id)
+      const pathToRemove = fileType === 'bundle'
+        ? deployment.file_relative_path.replace(/[\\/]+$/, '') + '/'
+        : deployment.file_relative_path
+
+      excludeService.removeFromGitIgnore(deployment.repo_path, pathToRemove)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
   ipcMain.handle('exclude:remove', async (_, deploymentId: string) => {
     try {
       const deployment = getDb()

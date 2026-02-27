@@ -15,6 +15,7 @@ export interface Deployment {
   // Computed at runtime
   isExcluded?: boolean
   isGloballyExcluded?: boolean
+  isInGitIgnore?: boolean
   hasChanges?: boolean
   fileExists?: boolean
   fullPath?: string

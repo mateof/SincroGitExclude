@@ -21,14 +21,22 @@
     "active": "Active",
     "inactive": "Inactive",
     "excluded": "Excluded",
+    "excludedHint": "This file is in .git/info/exclude (local only, not shared with your team)",
     "notExcluded": "Not excluded",
+    "notExcludedHint": "This file is not in .git/info/exclude and may appear in git status",
     "hasChanges": "Has changes",
+    "hasChangesHint": "The deployed file has been modified since the last commit",
     "synced": "Synced",
+    "syncedHint": "The deployed file matches the last committed version",
     "noChanges": "No changes",
     "unknown": "Unknown",
     "error": "Error",
     "globallyExcluded": "Global exclude",
-    "fileMissing": "File missing"
+    "globallyExcludedHint": "This file matches a pattern in your global git exclude (~/.config/git/ignore)",
+    "inGitIgnore": "In .gitignore",
+    "inGitIgnoreHint": "This file is in the repository's .gitignore (shared with your team)",
+    "fileMissing": "File missing",
+    "fileMissingHint": "The deployed file was not found on disk — it may have been deleted externally"
   },
   "labels": {
     "name": "Name",

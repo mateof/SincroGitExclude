@@ -21,14 +21,22 @@
     "active": "Activo",
     "inactive": "Inactivo",
     "excluded": "Excluido",
+    "excludedHint": "Este fichero esta en .git/info/exclude (solo local, no se comparte con el equipo)",
     "notExcluded": "No excluido",
+    "notExcludedHint": "Este fichero no esta en .git/info/exclude y puede aparecer en git status",
     "hasChanges": "Con cambios",
+    "hasChangesHint": "El fichero desplegado ha sido modificado desde el ultimo commit",
     "synced": "Sincronizado",
+    "syncedHint": "El fichero desplegado coincide con la ultima version confirmada",
     "noChanges": "Sin cambios",
     "unknown": "Desconocido",
     "error": "Error",
     "globallyExcluded": "Excluido global",
-    "fileMissing": "Fichero no encontrado"
+    "globallyExcludedHint": "Este fichero coincide con un patron del exclude global de git (~/.config/git/ignore)",
+    "inGitIgnore": "En .gitignore",
+    "inGitIgnoreHint": "Este fichero esta en el .gitignore del repositorio (se comparte con el equipo)",
+    "fileMissing": "Fichero no encontrado",
+    "fileMissingHint": "El fichero desplegado no se encontro en disco — puede haber sido eliminado externamente"
   },
   "labels": {
     "name": "Nombre",

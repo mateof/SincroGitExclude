@@ -29,6 +29,8 @@
     "reactivate": "Reactivar",
     "addExclude": "Agregar a excluidos",
     "removeExclude": "Quitar de excluidos",
+    "addGitIgnore": "Añadir a .gitignore",
+    "removeGitIgnore": "Quitar de .gitignore",
     "viewFile": "Ver fichero",
     "viewDiff": "Ver diferencias",
     "commit": "Confirmar",

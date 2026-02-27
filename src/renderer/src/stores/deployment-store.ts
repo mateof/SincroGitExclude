@@ -21,6 +21,7 @@ interface DeploymentStore {
   syncDeployment: (id: string) => Promise<boolean>
   checkChanges: (id: string) => Promise<boolean>
   checkExclude: (id: string) => Promise<boolean>
+  checkGitIgnore: (id: string) => Promise<boolean>
   updateDeploymentStatus: (id: string, updates: Partial<Deployment>) => void
   updateDescription: (id: string, description: string | null) => Promise<boolean>
   setDeploymentTags: (deploymentId: string, tagIds: string[]) => Promise<boolean>
@@ -68,16 +69,18 @@ export const useDeploymentStore = create<DeploymentStore>((set, get) => ({
       // Check exclude status and changes for each active deployment
       for (const d of deployments) {
         if (d.isActive) {
-          const [excludeResult, changesResult, globalExcludeResult, existsResult] = await Promise.all([
+          const [excludeResult, changesResult, globalExcludeResult, existsResult, gitignoreResult] = await Promise.all([
             window.api.invoke<IpcResult<boolean>>('deployments:check-exclude', d.id),
             window.api.invoke<IpcResult<boolean>>('deployments:check-changes', d.id),
             window.api.invoke<IpcResult<boolean>>('exclude:check-global', d.id),
-            window.api.invoke<IpcResult<boolean>>('deployments:check-file-exists', d.id)
+            window.api.invoke<IpcResult<boolean>>('deployments:check-file-exists', d.id),
+            window.api.invoke<IpcResult<boolean>>('gitignore:check', d.id)
           ])
           d.isExcluded = excludeResult.success ? excludeResult.data : undefined
           d.hasChanges = changesResult.success ? changesResult.data : undefined
           d.isGloballyExcluded = globalExcludeResult.success ? globalExcludeResult.data : undefined
           d.fileExists = existsResult.success ? existsResult.data : undefined
+          d.isInGitIgnore = gitignoreResult.success ? gitignoreResult.data : undefined
         }
         d.fullPath = `${d.repoPath}/${d.fileRelativePath}`.replace(/\\/g, '/')
       }
@@ -178,6 +181,22 @@ export const useDeploymentStore = create<DeploymentStore>((set, get) => ({
       set((s) => ({
         deployments: s.deployments.map((d) =>
           d.id === id ? { ...d, isExcluded: result.data } : d
+        )
+      }))
+      return result.data === true
+    }
+    return false
+  },
+
+  checkGitIgnore: async (id) => {
+    const result = await window.api.invoke<IpcResult<boolean>>(
+      'gitignore:check',
+      id
+    )
+    if (result.success) {
+      set((s) => ({
+        deployments: s.deployments.map((d) =>
+          d.id === id ? { ...d, isInGitIgnore: result.data } : d
         )
       }))
       return result.data === true

@@ -130,6 +130,94 @@ export class GitExcludeService {
     }
   }
 
+  // --- .gitignore methods ---
+
+  isInGitIgnore(repoPath: string, fileRelativePath: string): boolean {
+    const gitignorePath = join(repoPath, '.gitignore')
+    if (!existsSync(gitignorePath)) return false
+
+    const content = readFileSync(gitignorePath, 'utf-8')
+    const normalized = fileRelativePath.replace(/\\/g, '/').replace(/^\/+/, '')
+
+    return content.split('\n').some((line) => {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) return false
+      const clean = trimmed.replace(/^\/+/, '').replace(/\/+$/, '')
+      const normalClean = normalized.replace(/\/+$/, '')
+      return clean === normalClean
+    })
+  }
+
+  addToGitIgnore(
+    repoPath: string,
+    fileRelativePath: string,
+    deploymentId?: string
+  ): void {
+    const gitignorePath = join(repoPath, '.gitignore')
+    const normalized = fileRelativePath.replace(/\\/g, '/')
+
+    if (this.isInGitIgnore(repoPath, fileRelativePath)) return
+
+    let content = ''
+    if (existsSync(gitignorePath)) {
+      content = readFileSync(gitignorePath, 'utf-8')
+    }
+
+    if (content.length > 0 && !content.endsWith('\n')) {
+      content += '\n'
+    }
+
+    const marker = deploymentId
+      ? `# SincroGitExclude [${deploymentId}]`
+      : '# SincroGitExclude managed'
+
+    content += `${marker}\n${normalized}\n`
+    writeFileSync(gitignorePath, content, 'utf-8')
+    log.info(`Added ${normalized} to .gitignore in ${repoPath}`)
+  }
+
+  removeFromGitIgnore(
+    repoPath: string,
+    fileRelativePath: string
+  ): void {
+    const gitignorePath = join(repoPath, '.gitignore')
+    if (!existsSync(gitignorePath)) return
+
+    const content = readFileSync(gitignorePath, 'utf-8')
+    const normalized = fileRelativePath.replace(/\\/g, '/').replace(/^\/+/, '')
+    const lines = content.split('\n')
+    const filtered: string[] = []
+
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim()
+
+      // Skip our marker comment + the pattern line
+      if (
+        trimmed.startsWith('# SincroGitExclude') &&
+        i + 1 < lines.length
+      ) {
+        const nextClean = lines[i + 1].trim().replace(/^\/+/, '').replace(/\/+$/, '')
+        const normalClean = normalized.replace(/\/+$/, '')
+        if (nextClean === normalClean) {
+          i++ // Skip the pattern line too
+          continue
+        }
+      }
+
+      // Skip standalone pattern matches (without marker)
+      const lineClean = trimmed.replace(/^\/+/, '').replace(/\/+$/, '')
+      const normalClean = normalized.replace(/\/+$/, '')
+      if (lineClean === normalClean && !trimmed.startsWith('#')) {
+        continue
+      }
+
+      filtered.push(lines[i])
+    }
+
+    writeFileSync(gitignorePath, filtered.join('\n'), 'utf-8')
+    log.info(`Removed ${normalized} from .gitignore in ${repoPath}`)
+  }
+
   private getGlobalExcludePath(): string | null {
     // Try git config first (works cross-platform, git expands ~ on all OS)
     try {

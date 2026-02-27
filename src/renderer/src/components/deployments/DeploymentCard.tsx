@@ -29,7 +29,10 @@ import {
   Calendar,
   Clock,
   Tag,
-  Plus
+  Plus,
+  BookMarked,
+  BookPlus,
+  BookX
 } from 'lucide-react'
 
 const TAG_COLORS = [
@@ -62,7 +65,7 @@ export function DeploymentCard({
 }: DeploymentCardProps) {
   const { t, i18n } = useTranslation('deployments')
   const { t: tc } = useTranslation('common')
-  const { deactivateDeployment, reactivateDeployment, deleteDeployment, checkExclude, updateDescription, setDeploymentTags } =
+  const { deactivateDeployment, reactivateDeployment, deleteDeployment, checkExclude, checkGitIgnore, updateDescription, setDeploymentTags } =
     useDeploymentStore()
   const { tags: allTags, createTag } = useFileStore()
   const { changedDeployments, deletedDeployments } = useWatcherStore()
@@ -87,6 +90,15 @@ export function DeploymentCard({
       await window.api.invoke<IpcResult>('exclude:add', deployment.id)
     }
     await checkExclude(deployment.id)
+  }
+
+  const handleToggleGitIgnore = async () => {
+    if (deployment.isInGitIgnore) {
+      await window.api.invoke<IpcResult>('gitignore:remove', deployment.id)
+    } else {
+      await window.api.invoke<IpcResult>('gitignore:add', deployment.id)
+    }
+    await checkGitIgnore(deployment.id)
   }
 
   const handleDeactivate = async () => {
@@ -289,14 +301,14 @@ export function DeploymentCard({
         <div className="flex items-center gap-3 mb-3">
           {/* File missing */}
           {fileMissing && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" data-tooltip={tc('status.fileMissingHint')}>
               <FileX className="w-3.5 h-3.5 text-destructive" />
               <span className="text-[10px] text-destructive">{tc('status.fileMissing')}</span>
             </div>
           )}
 
           {/* Exclude status */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5" data-tooltip={deployment.isExcluded ? tc('status.excludedHint') : tc('status.notExcludedHint')}>
             {deployment.isExcluded ? (
               <>
                 <Shield className="w-3.5 h-3.5 text-success" />
@@ -312,22 +324,30 @@ export function DeploymentCard({
 
           {/* Global exclude info */}
           {deployment.isGloballyExcluded && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" data-tooltip={tc('status.globallyExcludedHint')}>
               <ShieldEllipsis className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-[10px] text-muted-foreground">{tc('status.globallyExcluded')}</span>
             </div>
           )}
 
+          {/* Gitignore status */}
+          {deployment.isInGitIgnore && (
+            <div className="flex items-center gap-1.5" data-tooltip={tc('status.inGitIgnoreHint')}>
+              <BookMarked className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-[10px] text-blue-400">{tc('status.inGitIgnore')}</span>
+            </div>
+          )}
+
           {/* Changes indicator */}
           {hasChanges && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" data-tooltip={tc('status.hasChangesHint')}>
               <CircleDot className="w-3.5 h-3.5 text-warning" />
               <span className="text-[10px] text-warning">{tc('status.hasChanges')}</span>
             </div>
           )}
 
           {!hasChanges && deployment.lastSyncedAt && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" data-tooltip={tc('status.syncedHint')}>
               <span className="text-[10px] text-muted-foreground">{tc('status.synced')}</span>
             </div>
           )}
@@ -353,6 +373,24 @@ export function DeploymentCard({
                 <ShieldX className="w-3.5 h-3.5" />
               ) : (
                 <ShieldCheck className="w-3.5 h-3.5" />
+              )}
+            </button>
+
+            {/* Toggle gitignore */}
+            <button
+              onClick={handleToggleGitIgnore}
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                deployment.isInGitIgnore
+                  ? 'hover:bg-destructive/10 text-muted-foreground hover:text-destructive'
+                  : 'hover:bg-blue-500/10 text-muted-foreground hover:text-blue-400'
+              }`}
+              data-tooltip={deployment.isInGitIgnore ? t('actions.removeGitIgnore') : t('actions.addGitIgnore')}
+              aria-label={deployment.isInGitIgnore ? t('actions.removeGitIgnore') : t('actions.addGitIgnore')}
+            >
+              {deployment.isInGitIgnore ? (
+                <BookX className="w-3.5 h-3.5" />
+              ) : (
+                <BookPlus className="w-3.5 h-3.5" />
               )}
             </button>
 
