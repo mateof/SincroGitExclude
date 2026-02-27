@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useUIStore } from '@/stores/ui-store'
 import { useFileStore } from '@/stores/file-store'
 import { useWatcherStore } from '@/stores/watcher-store'
+import { useDeploymentStore } from '@/stores/deployment-store'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -11,7 +12,7 @@ import { SettingsPage } from '@/pages/SettingsPage'
 export function MainLayout() {
   const { currentView, selectedFileId, deselectFile } = useUIStore()
   const { files } = useFileStore()
-  const { markChanged, markDeleted, refreshChangedFileIds } = useWatcherStore()
+  const { markChanged, markDeleted, clearChanged, refreshChangedFileIds } = useWatcherStore()
 
   // Auto-deselect if selected file no longer exists (e.g. after deletion)
   const fileExists = selectedFileId ? files.some((f) => f.id === selectedFileId) : false
@@ -24,12 +25,20 @@ export function MainLayout() {
 
   // Subscribe to watcher events from main process
   useEffect(() => {
-    const unsubChange = window.api.on('watcher:file-changed', (deploymentId: unknown) => {
-      markChanged(deploymentId as string)
+    const unsubChange = window.api.on('watcher:file-changed', async (deploymentId: unknown) => {
+      const id = deploymentId as string
+      markChanged(id)
+      // Verify actual content diff via deployment store (updates hasChanges in-place)
+      const hasRealChanges = await useDeploymentStore.getState().checkChanges(id)
+      if (!hasRealChanges) {
+        clearChanged(id)
+      }
       refreshChangedFileIds()
     })
     const unsubDelete = window.api.on('watcher:file-deleted', (deploymentId: unknown) => {
-      markDeleted(deploymentId as string)
+      const id = deploymentId as string
+      markDeleted(id)
+      useDeploymentStore.getState().updateDeploymentStatus(id, { fileExists: false })
       refreshChangedFileIds()
     })
 
@@ -37,7 +46,7 @@ export function MainLayout() {
       unsubChange()
       unsubDelete()
     }
-  }, [markChanged, markDeleted, refreshChangedFileIds])
+  }, [markChanged, markDeleted, clearChanged, refreshChangedFileIds])
 
   const renderContent = () => {
     switch (currentView) {
