@@ -396,32 +396,19 @@ export class DeploymentService {
 
           const bundleFiles = await this.gitService.listFiles(internalRepoPath)
 
-          // Save originals
-          const originals = new Map<string, Buffer>()
-          for (const relPath of bundleFiles) {
-            const internalPath = join(internalRepoPath, relPath)
-            if (existsSync(internalPath)) {
-              originals.set(relPath, readFileSync(internalPath))
-            }
-          }
-
-          // Copy deployed files to internal repo
           for (const relPath of bundleFiles) {
             const deployedPath = join(deployBasePath, relPath)
             const internalPath = join(internalRepoPath, relPath)
-            if (existsSync(deployedPath)) {
-              copyFileSync(deployedPath, internalPath)
+            const deployedExists = existsSync(deployedPath)
+            const internalExists = existsSync(internalPath)
+
+            if (deployedExists !== internalExists) return true
+            if (deployedExists && internalExists) {
+              if (!readFileSync(deployedPath).equals(readFileSync(internalPath))) return true
             }
           }
 
-          const hasChanges = await this.gitService.hasChanges(internalRepoPath)
-
-          // Restore originals
-          for (const [relPath, content] of originals) {
-            writeFileSync(join(internalRepoPath, relPath), content)
-          }
-
-          return hasChanges
+          return false
         } finally {
           if (currentBranch !== deployment.branch_name) {
             await this.gitService.checkout(internalRepoPath, currentBranch)
@@ -439,16 +426,9 @@ export class DeploymentService {
           await this.gitService.checkout(internalRepoPath, deployment.branch_name)
 
           const deployedContent = readFileSync(deployedFullPath)
-          const internalContentPath = join(internalRepoPath, 'content')
-          const originalContent = readFileSync(internalContentPath)
+          const internalContent = readFileSync(join(internalRepoPath, 'content'))
 
-          writeFileSync(internalContentPath, deployedContent)
-          const hasChanges = await this.gitService.hasChanges(internalRepoPath)
-
-          // Restore original content
-          writeFileSync(internalContentPath, originalContent)
-
-          return hasChanges
+          return !deployedContent.equals(internalContent)
         } finally {
           if (currentBranch !== deployment.branch_name) {
             await this.gitService.checkout(internalRepoPath, currentBranch)
