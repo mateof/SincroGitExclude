@@ -383,57 +383,55 @@ export class DeploymentService {
 
     const internalRepoPath = join(FILES_DIR, deployment.file_id)
     const fileType = this.getFileType(deployment.file_id)
+    const branchName = deployment.branch_name
 
     if (fileType === 'bundle') {
       const deployBasePath = join(deployment.repo_path, deployment.file_relative_path)
       if (!existsSync(deployBasePath)) return false
 
+      // Use git hash comparison: no checkout needed, reads from object store
       return this.gitService.withLock(internalRepoPath, async () => {
-        const currentBranch = await this.gitService.getCurrentBranch(internalRepoPath)
+        const bundleFiles = await this.gitService.listFilesAtCommit(
+          internalRepoPath,
+          branchName
+        )
 
-        try {
-          await this.gitService.checkout(internalRepoPath, deployment.branch_name)
+        for (const relPath of bundleFiles) {
+          const deployedPath = join(deployBasePath, relPath)
+          if (!existsSync(deployedPath)) return true
 
-          const bundleFiles = await this.gitService.listFiles(internalRepoPath)
+          const committedHash = await this.gitService.getBlobHash(
+            internalRepoPath,
+            branchName,
+            relPath
+          )
+          const deployedHash = await this.gitService.hashFile(
+            internalRepoPath,
+            deployedPath
+          )
 
-          for (const relPath of bundleFiles) {
-            const deployedPath = join(deployBasePath, relPath)
-            const internalPath = join(internalRepoPath, relPath)
-            const deployedExists = existsSync(deployedPath)
-            const internalExists = existsSync(internalPath)
-
-            if (deployedExists !== internalExists) return true
-            if (deployedExists && internalExists) {
-              if (!readFileSync(deployedPath).equals(readFileSync(internalPath))) return true
-            }
-          }
-
-          return false
-        } finally {
-          if (currentBranch !== deployment.branch_name) {
-            await this.gitService.checkout(internalRepoPath, currentBranch)
-          }
+          if (committedHash !== deployedHash) return true
         }
+
+        return false
       })
     } else {
       const deployedFullPath = join(deployment.repo_path, deployment.file_relative_path)
       if (!existsSync(deployedFullPath)) return false
 
+      // Use git hash comparison: no checkout needed, reads from object store
       return this.gitService.withLock(internalRepoPath, async () => {
-        const currentBranch = await this.gitService.getCurrentBranch(internalRepoPath)
+        const committedHash = await this.gitService.getBlobHash(
+          internalRepoPath,
+          branchName,
+          'content'
+        )
+        const deployedHash = await this.gitService.hashFile(
+          internalRepoPath,
+          deployedFullPath
+        )
 
-        try {
-          await this.gitService.checkout(internalRepoPath, deployment.branch_name)
-
-          const deployedContent = readFileSync(deployedFullPath)
-          const internalContent = readFileSync(join(internalRepoPath, 'content'))
-
-          return !deployedContent.equals(internalContent)
-        } finally {
-          if (currentBranch !== deployment.branch_name) {
-            await this.gitService.checkout(internalRepoPath, currentBranch)
-          }
-        }
+        return committedHash !== deployedHash
       })
     }
   }

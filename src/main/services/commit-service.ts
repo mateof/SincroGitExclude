@@ -41,10 +41,69 @@ export class CommitService {
     })
   }
 
+  async getChangedFiles(
+    deploymentId: string
+  ): Promise<Array<{ path: string; status: string; additions: number; deletions: number }>> {
+    const deployment = this.getDeployment(deploymentId)
+    const internalRepoPath = join(FILES_DIR, deployment.file_id)
+    const fileType = this.getFileType(deployment.file_id)
+
+    if (fileType !== 'bundle') return []
+
+    return this.gitService.withLock(internalRepoPath, async () => {
+      await this.gitService.checkout(internalRepoPath, deployment.branch_name)
+
+      const deployBasePath = join(deployment.repo_path, deployment.file_relative_path)
+      if (!existsSync(deployBasePath)) return []
+
+      const bundleFiles = await this.gitService.listFiles(internalRepoPath)
+
+      // Save originals
+      const originals = new Map<string, Buffer>()
+      for (const relPath of bundleFiles) {
+        const internalPath = join(internalRepoPath, relPath)
+        if (existsSync(internalPath)) {
+          originals.set(relPath, readFileSync(internalPath))
+        }
+      }
+
+      // Copy deployed files into internal repo
+      for (const relPath of bundleFiles) {
+        const deployedPath = join(deployBasePath, relPath)
+        const internalPath = join(internalRepoPath, relPath)
+        if (existsSync(deployedPath)) {
+          copyFileSync(deployedPath, internalPath)
+        }
+      }
+
+      // Get name-status and numstat
+      const nameStatus = await this.gitService.getDiffNameStatus(internalRepoPath)
+      const numstat = await this.gitService.getDiffNumstat(internalRepoPath)
+
+      // Restore originals
+      for (const [relPath, content] of originals) {
+        writeFileSync(join(internalRepoPath, relPath), content)
+      }
+
+      // Merge data
+      const numstatMap = new Map(numstat.map((n) => [n.path, n]))
+      return nameStatus.map((ns) => {
+        const stats = numstatMap.get(ns.path)
+        return {
+          path: ns.path,
+          status: ns.status === 'A' ? 'added' : ns.status === 'D' ? 'deleted' : 'modified',
+          additions: stats?.additions ?? 0,
+          deletions: stats?.deletions ?? 0
+        }
+      })
+    })
+  }
+
   async createCommit(
     deploymentId: string,
     message: string,
-    tag?: string
+    tag?: string,
+    selectedFiles?: string[]
   ): Promise<CommitLogEntry> {
     const deployment = this.getDeployment(deploymentId)
     const internalRepoPath = join(FILES_DIR, deployment.file_id)
@@ -58,22 +117,27 @@ export class CommitService {
       let commitHash: string
 
       if (isBundle) {
-        // Copy all deployed files into internal repo
+        // Copy deployed files into internal repo
         const deployBasePath = join(deployment.repo_path, deployment.file_relative_path)
         if (!existsSync(deployBasePath)) {
           throw new Error('Deployed directory does not exist')
         }
 
-        const bundleFiles = await this.gitService.listFiles(internalRepoPath)
-        for (const relPath of bundleFiles) {
+        const filesToCopy = selectedFiles || await this.gitService.listFiles(internalRepoPath)
+        for (const relPath of filesToCopy) {
           const deployedPath = join(deployBasePath, relPath)
           const internalPath = join(internalRepoPath, relPath)
           if (existsSync(deployedPath)) {
+            mkdirSync(dirname(internalPath), { recursive: true })
             copyFileSync(deployedPath, internalPath)
           }
         }
 
-        commitHash = await this.gitService.addAllAndCommit(internalRepoPath, message)
+        if (selectedFiles) {
+          commitHash = await this.gitService.addFilesAndCommit(internalRepoPath, selectedFiles, message)
+        } else {
+          commitHash = await this.gitService.addAllAndCommit(internalRepoPath, message)
+        }
       } else {
         // Copy deployed file content into internal repo
         const deployedFullPath = join(deployment.repo_path, deployment.file_relative_path)

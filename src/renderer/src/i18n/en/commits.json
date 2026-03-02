@@ -26,6 +26,17 @@
     "viewCode": "Code",
     "viewMarkdown": "Rendered"
   },
+  "staging": {
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selectedCount_one": "{{count}} file selected",
+    "selectedCount_other": "{{count}} files selected",
+    "commitSelected": "Commit selected",
+    "modified": "Modified",
+    "added": "Added",
+    "deleted": "Deleted",
+    "loadingFiles": "Loading changed files..."
+  },
   "messages": {
     "committed": "Changes committed successfully",
     "checkedOut": "Version checked out successfully",

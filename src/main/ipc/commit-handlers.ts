@@ -12,15 +12,24 @@ export function registerCommitHandlers(commitService: CommitService): void {
 
   ipcMain.handle(
     'commits:create',
-    async (_, deploymentId: string, message: string, tag?: string) => {
+    async (_, deploymentId: string, message: string, tag?: string, selectedFiles?: string[]) => {
       try {
-        const data = await commitService.createCommit(deploymentId, message, tag)
+        const data = await commitService.createCommit(deploymentId, message, tag, selectedFiles)
         return { success: true, data }
       } catch (error) {
         return { success: false, error: (error as Error).message }
       }
     }
   )
+
+  ipcMain.handle('commits:changed-files', async (_, deploymentId: string) => {
+    try {
+      const data = await commitService.getChangedFiles(deploymentId)
+      return { success: true, data }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
 
   ipcMain.handle(
     'commits:diff',

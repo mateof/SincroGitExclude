@@ -169,6 +169,17 @@ export class GitService {
     return git.diff(args)
   }
 
+  async addFilesAndCommit(repoPath: string, filePaths: string[], message: string): Promise<string> {
+    const git = this.getGit(repoPath)
+    await git.add(filePaths)
+    const status = await git.status()
+    if (status.staged.length === 0) {
+      throw new Error('No changes to commit')
+    }
+    const result = await git.commit(message)
+    return result.commit
+  }
+
   async addAllAndCommit(repoPath: string, message: string): Promise<string> {
     const git = this.getGit(repoPath)
     await git.add('.')
@@ -234,5 +245,55 @@ export class GitService {
   async restoreWorkingTree(repoPath: string): Promise<void> {
     const git = this.getGit(repoPath)
     await git.checkout(['.'])
+  }
+
+  async getDiffNameStatus(repoPath: string): Promise<Array<{ status: string; path: string }>> {
+    const git = this.getGit(repoPath)
+    const raw = await git.diff(['HEAD', '--name-status'])
+    if (!raw.trim()) return []
+    return raw
+      .trim()
+      .split('\n')
+      .map((line) => {
+        const [status, ...rest] = line.split('\t')
+        return { status: status.charAt(0), path: rest.join('\t') }
+      })
+  }
+
+  async getDiffNumstat(repoPath: string): Promise<Array<{ additions: number; deletions: number; path: string }>> {
+    const git = this.getGit(repoPath)
+    const raw = await git.diff(['HEAD', '--numstat'])
+    if (!raw.trim()) return []
+    return raw
+      .trim()
+      .split('\n')
+      .map((line) => {
+        const [add, del, ...rest] = line.split('\t')
+        return {
+          additions: add === '-' ? 0 : parseInt(add, 10),
+          deletions: del === '-' ? 0 : parseInt(del, 10),
+          path: rest.join('\t')
+        }
+      })
+  }
+
+  /**
+   * Get the blob hash of a file at a specific ref (branch/commit) from git's object store.
+   * Does NOT require checkout — reads directly from the object database.
+   */
+  async getBlobHash(repoPath: string, ref: string, filePath: string): Promise<string> {
+    const git = this.getGit(repoPath)
+    const result = await git.raw(['rev-parse', `${ref}:${filePath}`])
+    return result.trim()
+  }
+
+  /**
+   * Compute the git hash (SHA-1) of an external file as git would store it.
+   * Works with any file path, not just files inside the repo.
+   */
+  async hashFile(repoPath: string, filePath: string): Promise<string> {
+    const git = this.getGit(repoPath)
+    const result = await git.raw(['hash-object', filePath])
+    return result.trim()
   }
 }

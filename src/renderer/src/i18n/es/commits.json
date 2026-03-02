@@ -26,6 +26,17 @@
     "viewCode": "Codigo",
     "viewMarkdown": "Renderizado"
   },
+  "staging": {
+    "selectAll": "Seleccionar todo",
+    "deselectAll": "Deseleccionar todo",
+    "selectedCount_one": "{{count}} archivo seleccionado",
+    "selectedCount_other": "{{count}} archivos seleccionados",
+    "commitSelected": "Confirmar seleccionados",
+    "modified": "Modificado",
+    "added": "Añadido",
+    "deleted": "Eliminado",
+    "loadingFiles": "Cargando archivos modificados..."
+  },
   "messages": {
     "committed": "Cambios confirmados correctamente",
     "checkedOut": "Version restaurada correctamente",

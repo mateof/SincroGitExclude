@@ -67,6 +67,11 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
   const [diffModalOpen, setDiffModalOpen] = useState(false)
   const [diffContent, setDiffContent] = useState('')
   const [diffTitle, setDiffTitle] = useState('')
+  const [diffDeployment, setDiffDeployment] = useState<Deployment | null>(null)
+  const [diffIsWorking, setDiffIsWorking] = useState(false)
+
+  // Pre-selected files from diff modal for commit
+  const [preSelectedFiles, setPreSelectedFiles] = useState<string[] | undefined>(undefined)
 
   // File content modal state
   const [fileModalOpen, setFileModalOpen] = useState(false)
@@ -113,6 +118,8 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     if (result.success && result.data) {
       setDiffContent(result.data)
       setDiffTitle(`${deployment.fileRelativePath} - uncommitted changes`)
+      setDiffDeployment(deployment)
+      setDiffIsWorking(true)
       setDiffModalOpen(true)
     }
   }
@@ -130,6 +137,8 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
       const h1 = hash1.substring(0, 7)
       const h2 = hash2 ? hash2.substring(0, 7) : 'parent'
       setDiffTitle(`${h1} → ${h2}`)
+      setDiffDeployment(null)
+      setDiffIsWorking(false)
       setDiffModalOpen(true)
     }
   }
@@ -172,6 +181,13 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
   const handleNewDeployment = (deploymentId: string, commitHash?: string) => {
     setCreateSource({ deploymentId, commitHash })
     setTab('deployments')
+  }
+
+  const handleCommitFromDiff = (files: string[]) => {
+    if (!diffDeployment) return
+    setDiffModalOpen(false)
+    setPreSelectedFiles(files)
+    setCommitDeployment(diffDeployment)
   }
 
   const handleCommitted = () => {
@@ -331,6 +347,8 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
         onOpenChange={setDiffModalOpen}
         unifiedDiff={diffContent}
         title={diffTitle}
+        selectable={diffIsWorking && file.type === 'bundle'}
+        onCommitSelected={handleCommitFromDiff}
       />
 
       <FileContentModal
@@ -355,9 +373,16 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
       {commitDeployment && (
         <CommitDialog
           open={!!commitDeployment}
-          onOpenChange={(open) => !open && setCommitDeployment(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCommitDeployment(null)
+              setPreSelectedFiles(undefined)
+            }
+          }}
           deployment={commitDeployment}
           onCommitted={handleCommitted}
+          isBundle={file.type === 'bundle'}
+          preSelectedFiles={preSelectedFiles}
         />
       )}
 
