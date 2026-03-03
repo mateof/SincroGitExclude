@@ -8,7 +8,7 @@ interface FileStore {
   loading: boolean
   loadFiles: () => Promise<void>
   loadTags: () => Promise<void>
-  createFile: (name: string, alias: string, tagIds?: string[]) => Promise<ManagedFile | null>
+  createFile: (name: string, alias: string, tagIds?: string[], sourceFilePath?: string) => Promise<ManagedFile | null>
   createBundle: (
     name: string,
     alias: string,
@@ -67,12 +67,13 @@ export const useFileStore = create<FileStore>((set) => ({
     }
   },
 
-  createFile: async (name, alias, tagIds) => {
+  createFile: async (name, alias, tagIds, sourceFilePath) => {
     const result = await window.api.invoke<IpcResult<Record<string, unknown>>>(
       'files:create',
       name,
       alias,
-      tagIds
+      tagIds,
+      sourceFilePath
     )
     if (result.success && result.data) {
       const file = mapFileRow(result.data)

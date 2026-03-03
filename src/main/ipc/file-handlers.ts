@@ -18,9 +18,9 @@ export function registerFileHandlers(fileService: FileService): void {
     }
   })
 
-  ipcMain.handle('files:create', async (_, name: string, alias: string, tagIds?: string[]) => {
+  ipcMain.handle('files:create', async (_, name: string, alias: string, tagIds?: string[], sourceFilePath?: string) => {
     try {
-      const file = await fileService.createFile(name, alias)
+      const file = await fileService.createFile(name, alias, sourceFilePath)
       if (tagIds && tagIds.length > 0) {
         fileService.setFileTags(file.id, tagIds)
         file.tags = fileService.getFileTags(file.id)

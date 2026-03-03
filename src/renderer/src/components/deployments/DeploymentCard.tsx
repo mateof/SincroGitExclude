@@ -34,7 +34,8 @@ import {
   BookPlus,
   BookX,
   GitMerge,
-  Undo2
+  Undo2,
+  Scissors
 } from 'lucide-react'
 
 const TAG_COLORS = [
@@ -50,22 +51,26 @@ const TAG_COLORS = [
 
 interface DeploymentCardProps {
   deployment: Deployment
+  isBundle?: boolean
   onViewHistory: (deployment: Deployment) => void
   onCommit: (deployment: Deployment) => void
   onViewDiff: (deployment: Deployment) => void
   onViewFile: (deployment: Deployment) => void
   onNewDeployment: (deploymentId: string) => void
   onApplyFrom: (deployment: Deployment) => void
+  onPartialDeploy?: (deployment: Deployment) => void
 }
 
 export function DeploymentCard({
   deployment,
+  isBundle,
   onViewHistory,
   onCommit,
   onViewDiff,
   onViewFile,
   onNewDeployment,
-  onApplyFrom
+  onApplyFrom,
+  onPartialDeploy
 }: DeploymentCardProps) {
   const { t, i18n } = useTranslation('deployments')
   const { t: tc } = useTranslation('common')
@@ -494,6 +499,18 @@ export function DeploymentCard({
             >
               <Copy className="w-3.5 h-3.5" />
             </button>
+
+            {/* Extract files from bundle */}
+            {isBundle && onPartialDeploy && (
+              <button
+                onClick={() => onPartialDeploy(deployment)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                data-tooltip={t('partialDeploy.title', { defaultValue: 'Extract files' })}
+                aria-label={t('partialDeploy.title', { defaultValue: 'Extract files' })}
+              >
+                <Scissors className="w-3.5 h-3.5" />
+              </button>
+            )}
 
             {/* Edit tags */}
             <div className="relative" ref={tagEditorRef}>

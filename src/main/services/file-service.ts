@@ -27,7 +27,7 @@ export interface TagRow {
 export class FileService {
   constructor(private gitService: GitService) {}
 
-  async createFile(name: string, alias: string): Promise<ManagedFileRow> {
+  async createFile(name: string, alias: string, sourceFilePath?: string): Promise<ManagedFileRow> {
     const id = uuidv4()
     const repoPath = join(FILES_DIR, id)
 
@@ -40,8 +40,12 @@ export class FileService {
     mkdirSync(repoPath, { recursive: true })
     await this.gitService.initRepo(repoPath)
 
-    // Create empty content file and initial commit
-    writeFileSync(join(repoPath, 'content'), '', 'utf-8')
+    // Copy content from source or create empty
+    if (sourceFilePath && existsSync(sourceFilePath)) {
+      copyFileSync(sourceFilePath, join(repoPath, 'content'))
+    } else {
+      writeFileSync(join(repoPath, 'content'), '', 'utf-8')
+    }
     await this.gitService.addAndCommit(repoPath, 'content', 'Initial empty file')
 
     log.info(`Created managed file: ${name} (${id})`)

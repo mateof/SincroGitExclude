@@ -102,5 +102,18 @@
     "reactivated": "Deployment reactivated successfully",
     "synced": "Deployment synced successfully",
     "noDeployments": "No deployments yet. Add a deployment to start tracking a file in a repository."
+  },
+  "partialDeploy": {
+    "title": "Extract files",
+    "description": "Create a new managed file from selected files of this bundle",
+    "selectFiles": "Select files to extract",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selectedCount_one": "{{count}} file selected",
+    "selectedCount_other": "{{count}} files selected",
+    "willCreateFile": "Will create a single file",
+    "willCreateBundle": "Will create a bundle with {{count}} files",
+    "noFilesSelected": "Select at least one file",
+    "success": "New file created successfully"
   }
 }

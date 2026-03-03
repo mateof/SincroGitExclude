@@ -102,5 +102,18 @@
     "reactivated": "Despliegue reactivado correctamente",
     "synced": "Despliegue sincronizado correctamente",
     "noDeployments": "Aun no hay despliegues. Agregue un despliegue para comenzar a rastrear un archivo en un repositorio."
+  },
+  "partialDeploy": {
+    "title": "Extraer ficheros",
+    "description": "Crear un nuevo fichero gestionado a partir de ficheros seleccionados de este bundle",
+    "selectFiles": "Seleccionar ficheros a extraer",
+    "selectAll": "Seleccionar todo",
+    "deselectAll": "Deseleccionar todo",
+    "selectedCount_one": "{{count}} fichero seleccionado",
+    "selectedCount_other": "{{count}} ficheros seleccionados",
+    "willCreateFile": "Se creara un fichero individual",
+    "willCreateBundle": "Se creara un bundle con {{count}} ficheros",
+    "noFilesSelected": "Selecciona al menos un fichero",
+    "success": "Nuevo fichero creado correctamente"
   }
 }

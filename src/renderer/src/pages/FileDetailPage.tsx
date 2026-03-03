@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useFileStore } from '@/stores/file-store'
 import { useDeploymentStore } from '@/stores/deployment-store'
 import { useWatcherStore } from '@/stores/watcher-store'
+import { useUIStore } from '@/stores/ui-store'
 import { FileEditDialog } from '@/components/files/FileEditDialog'
 import { DeploymentList, type CreateSource } from '@/components/deployments/DeploymentList'
 import { CommitHistory } from '@/components/commits/CommitHistory'
@@ -12,6 +13,7 @@ import { DiffModal } from '@/components/diff/DiffModal'
 import { FileContentModal, type FileContentEntry } from '@/components/diff/FileContentModal'
 import { DeleteConfirmDialog } from '@/components/deployments/DeleteConfirmDialog'
 import { ApplyFromDialog } from '@/components/deployments/ApplyFromDialog'
+import { PartialDeployDialog } from '@/components/deployments/PartialDeployDialog'
 import type { Deployment, CommitInfo, IpcResult } from '@/types'
 import { Pencil, Trash2, ArrowLeft, FolderArchive, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -25,6 +27,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
   const { files, deleteFile, loadEntries } = useFileStore()
   const { deployments, loadDeployments } = useDeploymentStore()
   const { refreshChangedFileIds } = useWatcherStore()
+  const { selectFile } = useUIStore()
   const file = files.find((f) => f.id === fileId)
 
   const [showEdit, setShowEdit] = useState(false)
@@ -80,6 +83,9 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
 
   // Apply from dialog state
   const [applyFromDeployment, setApplyFromDeployment] = useState<Deployment | null>(null)
+
+  // Partial deploy dialog state
+  const [partialDeployment, setPartialDeployment] = useState<Deployment | null>(null)
 
   if (!file) {
     return null
@@ -223,6 +229,15 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     setApplyFromDeployment(null)
   }
 
+  const handlePartialDeploy = (deployment: Deployment) => {
+    setPartialDeployment(deployment)
+  }
+
+  const handlePartialCreated = (newFileId: string) => {
+    setPartialDeployment(null)
+    selectFile(newFileId)
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* File header */}
@@ -315,11 +330,13 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
       {tab === 'deployments' && (
         <DeploymentList
           fileId={fileId}
+          isBundle={file.type === 'bundle'}
           onViewHistory={handleViewHistory}
           onCommit={handleCommit}
           onViewDiff={handleViewDiff}
           onViewFile={handleViewCurrentFile}
           onApplyFrom={handleApplyFrom}
+          onPartialDeploy={file.type === 'bundle' ? handlePartialDeploy : undefined}
           createSource={createSource}
           onCreateSourceChange={setCreateSource}
         />
@@ -423,6 +440,16 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
           targetDeployment={applyFromDeployment}
           allDeployments={deployments}
           onApplied={handleApplied}
+        />
+      )}
+
+      {partialDeployment && (
+        <PartialDeployDialog
+          open={!!partialDeployment}
+          onOpenChange={(open) => !open && setPartialDeployment(null)}
+          deployment={partialDeployment}
+          bundleFiles={bundleEntries}
+          onCreated={handlePartialCreated}
         />
       )}
     </div>

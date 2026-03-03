@@ -27,22 +27,26 @@ type StatusFilter = 'all' | 'active' | 'inactive' | 'hasChanges' | 'excluded' | 
 
 interface DeploymentListProps {
   fileId: string
+  isBundle?: boolean
   onViewHistory: (deployment: Deployment) => void
   onCommit: (deployment: Deployment) => void
   onViewDiff: (deployment: Deployment) => void
   onViewFile: (deployment: Deployment) => void
   onApplyFrom: (deployment: Deployment) => void
+  onPartialDeploy?: (deployment: Deployment) => void
   createSource: CreateSource | null
   onCreateSourceChange: (source: CreateSource | null) => void
 }
 
 export function DeploymentList({
   fileId,
+  isBundle,
   onViewHistory,
   onCommit,
   onViewDiff,
   onViewFile,
   onApplyFrom,
+  onPartialDeploy,
   createSource,
   onCreateSourceChange
 }: DeploymentListProps) {
@@ -363,12 +367,14 @@ export function DeploymentList({
             <DeploymentCard
               key={d.id}
               deployment={d}
+              isBundle={isBundle}
               onViewHistory={onViewHistory}
               onCommit={onCommit}
               onViewDiff={onViewDiff}
               onViewFile={onViewFile}
               onNewDeployment={(deploymentId) => onCreateSourceChange({ deploymentId })}
               onApplyFrom={onApplyFrom}
+              onPartialDeploy={onPartialDeploy}
             />
           ))}
         </div>
