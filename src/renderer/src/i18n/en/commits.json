@@ -10,7 +10,8 @@
     "checkout": "Checkout",
     "viewFile": "View file content",
     "viewDiff": "View diff",
-    "compareDiff": "Compare"
+    "compareDiff": "Compare",
+    "extractFiles": "Extract files"
   },
   "diff": {
     "sideBySide": "Side by side",

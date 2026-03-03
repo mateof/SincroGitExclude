@@ -4,7 +4,7 @@ import { useFileStore } from '@/stores/file-store'
 import { useDeploymentStore } from '@/stores/deployment-store'
 import { useUIStore } from '@/stores/ui-store'
 import { TagSelector } from '../files/TagSelector'
-import type { Deployment, IpcResult } from '@/types'
+import type { Deployment, CommitInfo, IpcResult } from '@/types'
 import {
   X,
   FolderOpen,
@@ -14,7 +14,9 @@ import {
   Square,
   CheckCircle2,
   File,
-  FolderArchive
+  FolderArchive,
+  GitCommitHorizontal,
+  Loader2
 } from 'lucide-react'
 
 interface ResolveResult {
@@ -30,6 +32,7 @@ interface PartialDeployDialogProps {
   deployment: Deployment
   bundleFiles: string[]
   onCreated: (fileId: string) => void
+  initialCommitHash?: string
 }
 
 export function PartialDeployDialog({
@@ -37,12 +40,13 @@ export function PartialDeployDialog({
   onOpenChange,
   deployment,
   bundleFiles,
-  onCreated
+  onCreated,
+  initialCommitHash
 }: PartialDeployDialogProps) {
   const { t } = useTranslation('deployments')
   const { t: tc } = useTranslation('common')
   const { t: tf } = useTranslation('files')
-  const { createFile, createBundle } = useFileStore()
+  const { createFile, createBundle, createFromCommit } = useFileStore()
   const { createDeployment } = useDeploymentStore()
   const { selectFile } = useUIStore()
 
@@ -56,6 +60,12 @@ export function PartialDeployDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Commit selector state
+  const [commits, setCommits] = useState<CommitInfo[]>([])
+  const [selectedCommitHash, setSelectedCommitHash] = useState<string>('current')
+  const [commitFiles, setCommitFiles] = useState<string[]>([])
+  const [loadingFiles, setLoadingFiles] = useState(false)
+
   useEffect(() => {
     if (open) {
       setSelectedFiles(new Set())
@@ -66,10 +76,55 @@ export function PartialDeployDialog({
       setRepoPath(null)
       setFolderRelativePath(null)
       setError('')
+      setCommits([])
+      setSelectedCommitHash(initialCommitHash || 'current')
+      setCommitFiles([])
+
+      // Load commits for the deployment
+      window.api
+        .invoke<IpcResult<CommitInfo[]>>('commits:list', deployment.id)
+        .then((result) => {
+          if (result.success && result.data) {
+            setCommits(result.data)
+          }
+        })
+
+      // If initial commit hash, load files for it
+      if (initialCommitHash) {
+        loadFilesForCommit(initialCommitHash)
+      }
     }
   }, [open])
 
+  const loadFilesForCommit = async (hash: string) => {
+    setLoadingFiles(true)
+    setSelectedFiles(new Set())
+    const result = await window.api.invoke<
+      IpcResult<Array<{ path: string; content: string }>>
+    >('commits:files-at', deployment.id, hash)
+    if (result.success && result.data) {
+      setCommitFiles(result.data.map((f) => f.path))
+    }
+    setLoadingFiles(false)
+  }
+
+  const handleCommitChange = (hash: string) => {
+    setSelectedCommitHash(hash)
+    setSelectedFiles(new Set())
+    setName('')
+    setAlias('')
+    if (hash === 'current') {
+      setCommitFiles([])
+    } else {
+      loadFilesForCommit(hash)
+    }
+  }
+
   if (!open) return null
+
+  // Use commit files if a commit is selected, otherwise use bundleFiles (current deployed)
+  const availableFiles = selectedCommitHash === 'current' ? bundleFiles : commitFiles
+  const isFromCommit = selectedCommitHash !== 'current'
 
   const generateSlug = (text: string): string => {
     return text
@@ -115,10 +170,10 @@ export function PartialDeployDialog({
   }
 
   const toggleAll = () => {
-    if (selectedFiles.size === bundleFiles.length) {
+    if (selectedFiles.size === availableFiles.length) {
       setSelectedFiles(new Set())
     } else {
-      setSelectedFiles(new Set(bundleFiles))
+      setSelectedFiles(new Set(availableFiles))
     }
   }
 
@@ -159,59 +214,57 @@ export function PartialDeployDialog({
     setLoading(true)
     setError('')
 
-    const deployBasePath = `${deployment.repoPath}/${deployment.fileRelativePath}`.replace(
-      /\\/g,
-      '/'
-    )
-    const absolutePaths = Array.from(selectedFiles).map((f) => `${deployBasePath}/${f}`)
     const tagIds = selectedTagIds.length > 0 ? selectedTagIds : undefined
     const autoExclude = localStorage.getItem('autoExclude') !== 'false'
 
     try {
-      if (isSingleFile) {
-        const file = await createFile(name.trim(), alias.trim(), tagIds, absolutePaths[0])
-        if (file) {
-          if (repoPath && deployRelativePath) {
-            await createDeployment(
-              file.id,
-              repoPath,
-              deployRelativePath,
-              undefined,
-              undefined,
-              autoExclude
-            )
-          }
-          selectFile(file.id)
-          onCreated(file.id)
-          onOpenChange(false)
-        } else {
-          setError(tc('messages.error', { defaultValue: 'An error occurred' }))
-        }
-      } else {
-        const file = await createBundle(
+      let file
+
+      if (isFromCommit) {
+        // Create from commit using createFromCommit
+        file = await createFromCommit(
           name.trim(),
           alias.trim(),
-          absolutePaths,
-          deployBasePath,
+          deployment.id,
+          selectedCommitHash,
+          Array.from(selectedFiles),
           tagIds
         )
-        if (file) {
-          if (repoPath && deployRelativePath) {
-            await createDeployment(
-              file.id,
-              repoPath,
-              deployRelativePath,
-              undefined,
-              undefined,
-              autoExclude
-            )
-          }
-          selectFile(file.id)
-          onCreated(file.id)
-          onOpenChange(false)
+      } else {
+        // Create from current deployed files
+        const deployBasePath =
+          `${deployment.repoPath}/${deployment.fileRelativePath}`.replace(/\\/g, '/')
+        const absolutePaths = Array.from(selectedFiles).map((f) => `${deployBasePath}/${f}`)
+
+        if (isSingleFile) {
+          file = await createFile(name.trim(), alias.trim(), tagIds, absolutePaths[0])
         } else {
-          setError(tc('messages.error', { defaultValue: 'An error occurred' }))
+          file = await createBundle(
+            name.trim(),
+            alias.trim(),
+            absolutePaths,
+            deployBasePath,
+            tagIds
+          )
         }
+      }
+
+      if (file) {
+        if (repoPath && deployRelativePath) {
+          await createDeployment(
+            file.id,
+            repoPath,
+            deployRelativePath,
+            undefined,
+            undefined,
+            autoExclude
+          )
+        }
+        selectFile(file.id)
+        onCreated(file.id)
+        onOpenChange(false)
+      } else {
+        setError(tc('messages.error', { defaultValue: 'An error occurred' }))
       }
     } catch {
       setError(tc('messages.error', { defaultValue: 'An error occurred' }))
@@ -220,8 +273,7 @@ export function PartialDeployDialog({
     setLoading(false)
   }
 
-  const canSubmit =
-    selectedFiles.size > 0 && name.trim() && alias.trim() && !loading
+  const canSubmit = selectedFiles.size > 0 && name.trim() && alias.trim() && !loading
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -246,6 +298,30 @@ export function PartialDeployDialog({
           })}
         </p>
 
+        {/* Commit selector */}
+        {commits.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              <GitCommitHorizontal className="w-3 h-3 inline mr-1" />
+              {t('partialDeploy.sourceCommit', { defaultValue: 'Source commit' })}
+            </label>
+            <select
+              value={selectedCommitHash}
+              onChange={(e) => handleCommitChange(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-secondary rounded-lg border border-border focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+            >
+              <option value="current">
+                {t('partialDeploy.currentFiles', { defaultValue: 'Current (deployed files)' })}
+              </option>
+              {commits.map((c) => (
+                <option key={c.hash} value={c.hash}>
+                  {c.hash.substring(0, 7)} - {c.message}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* File selection */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
@@ -254,42 +330,57 @@ export function PartialDeployDialog({
                 defaultValue: 'Select files to extract'
               })}
             </label>
-            <button
-              type="button"
-              onClick={toggleAll}
-              className="text-[10px] text-primary hover:underline"
-            >
-              {selectedFiles.size === bundleFiles.length
-                ? t('partialDeploy.deselectAll', { defaultValue: 'Deselect all' })
-                : t('partialDeploy.selectAll', { defaultValue: 'Select all' })}
-            </button>
+            {availableFiles.length > 0 && !loadingFiles && (
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="text-[10px] text-primary hover:underline"
+              >
+                {selectedFiles.size === availableFiles.length
+                  ? t('partialDeploy.deselectAll', { defaultValue: 'Deselect all' })
+                  : t('partialDeploy.selectAll', { defaultValue: 'Select all' })}
+              </button>
+            )}
           </div>
 
           <div className="border border-border rounded-lg max-h-48 overflow-y-auto">
-            {bundleFiles.map((file) => {
-              const selected = selectedFiles.has(file)
-              return (
-                <button
-                  key={file}
-                  type="button"
-                  onClick={() => toggleFile(file)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${
-                    selected
-                      ? 'bg-primary/5 text-foreground'
-                      : 'text-muted-foreground hover:bg-secondary/50'
-                  }`}
-                >
-                  {selected ? (
-                    <CheckSquare className="w-3.5 h-3.5 text-primary shrink-0" />
-                  ) : (
-                    <Square className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  <span className="text-[11px] font-mono truncate" title={file}>
-                    {file}
-                  </span>
-                </button>
-              )
-            })}
+            {loadingFiles ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {tc('labels.loading', { defaultValue: 'Loading...' })}
+              </div>
+            ) : availableFiles.length === 0 ? (
+              <div className="py-6 text-center text-xs text-muted-foreground">
+                {t('partialDeploy.noFilesAvailable', {
+                  defaultValue: 'No files available'
+                })}
+              </div>
+            ) : (
+              availableFiles.map((file) => {
+                const selected = selectedFiles.has(file)
+                return (
+                  <button
+                    key={file}
+                    type="button"
+                    onClick={() => toggleFile(file)}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${
+                      selected
+                        ? 'bg-primary/5 text-foreground'
+                        : 'text-muted-foreground hover:bg-secondary/50'
+                    }`}
+                  >
+                    {selected ? (
+                      <CheckSquare className="w-3.5 h-3.5 text-primary shrink-0" />
+                    ) : (
+                      <Square className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span className="text-[11px] font-mono truncate" title={file}>
+                      {file}
+                    </span>
+                  </button>
+                )
+              })
+            )}
           </div>
 
           {selectedFiles.size > 0 && (

@@ -10,9 +10,10 @@ interface CommitHistoryProps {
   onViewDiff: (hash1: string, hash2?: string) => void
   onViewFile: (hash: string) => void
   onNewDeployment?: (commitHash: string) => void
+  onExtractFiles?: (commitHash: string) => void
 }
 
-export function CommitHistory({ deployment, onCheckout, onViewDiff, onViewFile, onNewDeployment }: CommitHistoryProps) {
+export function CommitHistory({ deployment, onCheckout, onViewDiff, onViewFile, onNewDeployment, onExtractFiles }: CommitHistoryProps) {
   const { t } = useTranslation('commits')
   const [commits, setCommits] = useState<CommitInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,6 +80,7 @@ export function CommitHistory({ deployment, onCheckout, onViewDiff, onViewFile, 
                 }}
                 onViewFile={() => onViewFile(commit.hash)}
                 onNewDeployment={onNewDeployment ? () => onNewDeployment(commit.hash) : undefined}
+                onExtractFiles={onExtractFiles ? () => onExtractFiles(commit.hash) : undefined}
               />
               )
             })}

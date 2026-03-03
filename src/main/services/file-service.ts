@@ -173,6 +173,64 @@ export class FileService {
     return join(FILES_DIR, fileId)
   }
 
+  async createFromCommit(
+    name: string,
+    alias: string,
+    sourceDeploymentId: string,
+    commitHash: string,
+    selectedFiles: string[]
+  ): Promise<ManagedFileRow> {
+    // Resolve source internal repo from deployment
+    const deployment = getDb()
+      .prepare('SELECT file_id FROM deployments WHERE id = ?')
+      .get(sourceDeploymentId) as { file_id: string } | undefined
+    if (!deployment) throw new Error('Source deployment not found')
+
+    const sourceRepoPath = join(FILES_DIR, deployment.file_id)
+    const isBundle = selectedFiles.length > 1
+    const id = uuidv4()
+    const repoPath = join(FILES_DIR, id)
+
+    // Insert into DB
+    if (isBundle) {
+      getDb()
+        .prepare("INSERT INTO files (id, name, alias, type) VALUES (?, ?, ?, 'bundle')")
+        .run(id, name, alias)
+    } else {
+      getDb()
+        .prepare('INSERT INTO files (id, name, alias) VALUES (?, ?, ?)')
+        .run(id, name, alias)
+    }
+
+    // Create git repo
+    mkdirSync(repoPath, { recursive: true })
+    await this.gitService.initRepo(repoPath)
+
+    // Read files from source commit and write to new repo
+    if (isBundle) {
+      for (const relPath of selectedFiles) {
+        const content = await this.gitService.getFileAtCommit(sourceRepoPath, commitHash, relPath)
+        const destPath = join(repoPath, relPath)
+        mkdirSync(dirname(destPath), { recursive: true })
+        writeFileSync(destPath, content, 'utf-8')
+      }
+      await this.gitService.addAllAndCommit(repoPath, 'Initial bundle from commit')
+    } else {
+      const content = await this.gitService.getFileAtCommit(
+        sourceRepoPath,
+        commitHash,
+        selectedFiles[0]
+      )
+      writeFileSync(join(repoPath, 'content'), content, 'utf-8')
+      await this.gitService.addAndCommit(repoPath, 'content', 'Initial file from commit')
+    }
+
+    log.info(
+      `Created ${isBundle ? 'bundle' : 'file'} from commit ${commitHash.substring(0, 7)}: ${name} (${id})`
+    )
+    return this.getFile(id)!
+  }
+
   // --- Tag methods ---
 
   listTags(): TagRow[] {

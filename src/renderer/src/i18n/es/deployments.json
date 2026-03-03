@@ -114,6 +114,9 @@
     "willCreateFile": "Se creara un fichero individual",
     "willCreateBundle": "Se creara un bundle con {{count}} ficheros",
     "noFilesSelected": "Selecciona al menos un fichero",
+    "noFilesAvailable": "No hay ficheros disponibles",
+    "sourceCommit": "Commit de origen",
+    "currentFiles": "Actual (ficheros desplegados)",
     "success": "Nuevo fichero creado correctamente"
   }
 }

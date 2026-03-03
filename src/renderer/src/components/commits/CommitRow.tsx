@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { CommitInfo } from '@/types'
-import { Eye, FileCode, Rocket, RotateCcw, Tag } from 'lucide-react'
+import { Eye, FileCode, Rocket, RotateCcw, Scissors, Tag } from 'lucide-react'
 
 interface CommitRowProps {
   commit: CommitInfo
@@ -11,9 +11,10 @@ interface CommitRowProps {
   onViewDiff: () => void
   onViewFile: () => void
   onNewDeployment?: () => void
+  onExtractFiles?: () => void
 }
 
-export function CommitRow({ commit, isCurrent, isFirst, isLast, onCheckout, onViewDiff, onViewFile, onNewDeployment }: CommitRowProps) {
+export function CommitRow({ commit, isCurrent, isFirst, isLast, onCheckout, onViewDiff, onViewFile, onNewDeployment, onExtractFiles }: CommitRowProps) {
   const { t } = useTranslation('commits')
 
   const shortHash = commit.hash.substring(0, 7)
@@ -82,6 +83,15 @@ export function CommitRow({ commit, isCurrent, isFirst, isLast, onCheckout, onVi
             title={t('actions.deploy', { defaultValue: 'Deploy this commit' })}
           >
             <Rocket className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {onExtractFiles && (
+          <button
+            onClick={onExtractFiles}
+            className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+            title={t('actions.extractFiles', { defaultValue: 'Extract files' })}
+          >
+            <Scissors className="w-3.5 h-3.5" />
           </button>
         )}
       </div>

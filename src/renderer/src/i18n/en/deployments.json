@@ -114,6 +114,9 @@
     "willCreateFile": "Will create a single file",
     "willCreateBundle": "Will create a bundle with {{count}} files",
     "noFilesSelected": "Select at least one file",
+    "noFilesAvailable": "No files available",
+    "sourceCommit": "Source commit",
+    "currentFiles": "Current (deployed files)",
     "success": "New file created successfully"
   }
 }

@@ -86,6 +86,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
 
   // Partial deploy dialog state
   const [partialDeployment, setPartialDeployment] = useState<Deployment | null>(null)
+  const [partialCommitHash, setPartialCommitHash] = useState<string | undefined>(undefined)
 
   if (!file) {
     return null
@@ -229,13 +230,21 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     setApplyFromDeployment(null)
   }
 
-  const handlePartialDeploy = (deployment: Deployment) => {
+  const handlePartialDeploy = (deployment: Deployment, commitHash?: string) => {
     setPartialDeployment(deployment)
+    setPartialCommitHash(commitHash)
   }
 
   const handlePartialCreated = (newFileId: string) => {
     setPartialDeployment(null)
+    setPartialCommitHash(undefined)
     selectFile(newFileId)
+  }
+
+  const handleExtractFromCommit = (commitHash: string) => {
+    if (historyDeployment) {
+      handlePartialDeploy(historyDeployment, commitHash)
+    }
   }
 
   return (
@@ -359,6 +368,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
                 onViewDiff={handleViewCommitDiff}
                 onViewFile={handleViewFile}
                 onNewDeployment={(commitHash) => handleNewDeployment(historyDeployment.id, commitHash)}
+                onExtractFiles={file.type === 'bundle' ? handleExtractFromCommit : undefined}
               />
             </div>
           ) : (
@@ -446,10 +456,16 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
       {partialDeployment && (
         <PartialDeployDialog
           open={!!partialDeployment}
-          onOpenChange={(open) => !open && setPartialDeployment(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPartialDeployment(null)
+              setPartialCommitHash(undefined)
+            }
+          }}
           deployment={partialDeployment}
           bundleFiles={bundleEntries}
           onCreated={handlePartialCreated}
+          initialCommitHash={partialCommitHash}
         />
       )}
     </div>

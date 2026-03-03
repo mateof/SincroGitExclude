@@ -105,6 +105,36 @@ export function registerFileHandlers(fileService: FileService): void {
     }
   )
 
+  ipcMain.handle(
+    'files:create-from-commit',
+    async (
+      _,
+      name: string,
+      alias: string,
+      sourceDeploymentId: string,
+      commitHash: string,
+      selectedFiles: string[],
+      tagIds?: string[]
+    ) => {
+      try {
+        const file = await fileService.createFromCommit(
+          name,
+          alias,
+          sourceDeploymentId,
+          commitHash,
+          selectedFiles
+        )
+        if (tagIds && tagIds.length > 0) {
+          fileService.setFileTags(file.id, tagIds)
+          file.tags = fileService.getFileTags(file.id)
+        }
+        return { success: true, data: file }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
+
   ipcMain.handle('files:list-entries', async (_, fileId: string) => {
     try {
       const entries = await fileService.listBundleEntries(fileId)

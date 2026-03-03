@@ -20,6 +20,14 @@ interface FileStore {
   deleteFile: (id: string, deploymentDiskOptions?: Record<string, boolean>) => Promise<boolean>
   createTag: (name: string, color: string) => Promise<FileTag | null>
   deleteTag: (id: string) => Promise<boolean>
+  createFromCommit: (
+    name: string,
+    alias: string,
+    sourceDeploymentId: string,
+    commitHash: string,
+    selectedFiles: string[],
+    tagIds?: string[]
+  ) => Promise<ManagedFile | null>
   setFileTags: (fileId: string, tagIds: string[]) => Promise<boolean>
   loadEntries: (fileId: string) => Promise<string[]>
 }
@@ -149,6 +157,24 @@ export const useFileStore = create<FileStore>((set) => ({
       return true
     }
     return false
+  },
+
+  createFromCommit: async (name, alias, sourceDeploymentId, commitHash, selectedFiles, tagIds) => {
+    const result = await window.api.invoke<IpcResult<Record<string, unknown>>>(
+      'files:create-from-commit',
+      name,
+      alias,
+      sourceDeploymentId,
+      commitHash,
+      selectedFiles,
+      tagIds
+    )
+    if (result.success && result.data) {
+      const file = mapFileRow(result.data)
+      set((s) => ({ files: [file, ...s.files] }))
+      return file
+    }
+    return null
   },
 
   setFileTags: async (fileId, tagIds) => {
