@@ -489,6 +489,34 @@ export class CommitService {
     })
   }
 
+  async discardFiles(deploymentId: string, filePaths: string[]): Promise<void> {
+    const deployment = this.getDeployment(deploymentId)
+    const internalRepoPath = join(FILES_DIR, deployment.file_id)
+    const fileType = this.getFileType(deployment.file_id)
+
+    if (fileType !== 'bundle') {
+      throw new Error('discardFiles is only supported for bundles')
+    }
+
+    await this.gitService.withLock(internalRepoPath, async () => {
+      await this.gitService.checkout(internalRepoPath, deployment.branch_name)
+      const deployBasePath = join(deployment.repo_path, deployment.file_relative_path)
+
+      for (const relPath of filePaths) {
+        const content = await this.gitService.getFileAtCommit(
+          internalRepoPath,
+          deployment.branch_name,
+          relPath
+        )
+        const deployedPath = join(deployBasePath, relPath)
+        mkdirSync(dirname(deployedPath), { recursive: true })
+        writeFileSync(deployedPath, content, 'utf-8')
+      }
+    })
+
+    log.info(`Discarded ${filePaths.length} files for deployment ${deploymentId}`)
+  }
+
   async discardChanges(deploymentId: string): Promise<void> {
     const deployment = this.getDeployment(deploymentId)
     const internalRepoPath = join(FILES_DIR, deployment.file_id)

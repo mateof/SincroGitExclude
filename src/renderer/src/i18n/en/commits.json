@@ -32,6 +32,8 @@
     "selectedCount_one": "{{count}} file selected",
     "selectedCount_other": "{{count}} files selected",
     "commitSelected": "Commit selected",
+    "discardSelected": "Discard selected",
+    "discardConfirm": "Are you sure you want to discard changes for the selected files? This action cannot be undone.",
     "modified": "Modified",
     "added": "Added",
     "deleted": "Deleted",

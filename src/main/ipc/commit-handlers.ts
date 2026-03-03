@@ -121,6 +121,15 @@ export function registerCommitHandlers(commitService: CommitService): void {
     }
   )
 
+  ipcMain.handle('commits:discard-files', async (_, deploymentId: string, filePaths: string[]) => {
+    try {
+      await commitService.discardFiles(deploymentId, filePaths)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
   ipcMain.handle('commits:discard', async (_, deploymentId: string) => {
     try {
       await commitService.discardChanges(deploymentId)

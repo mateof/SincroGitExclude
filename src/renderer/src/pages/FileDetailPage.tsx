@@ -190,6 +190,20 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     setCommitDeployment(diffDeployment)
   }
 
+  const handleDiscardFromDiff = async (files: string[]) => {
+    if (!diffDeployment) return
+    const result = await window.api.invoke<IpcResult>(
+      'commits:discard-files',
+      diffDeployment.id,
+      files
+    )
+    if (result.success) {
+      setDiffModalOpen(false)
+      await loadDeployments(fileId)
+      refreshChangedFileIds()
+    }
+  }
+
   const handleCommitted = () => {
     loadDeployments(fileId)
     refreshChangedFileIds()
@@ -349,6 +363,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
         title={diffTitle}
         selectable={diffIsWorking && file.type === 'bundle'}
         onCommitSelected={handleCommitFromDiff}
+        onDiscardSelected={handleDiscardFromDiff}
       />
 
       <FileContentModal

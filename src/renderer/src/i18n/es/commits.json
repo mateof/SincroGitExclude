@@ -32,6 +32,8 @@
     "selectedCount_one": "{{count}} archivo seleccionado",
     "selectedCount_other": "{{count}} archivos seleccionados",
     "commitSelected": "Confirmar seleccionados",
+    "discardSelected": "Descartar seleccionados",
+    "discardConfirm": "¿Seguro que quieres descartar los cambios de los ficheros seleccionados? Esta accion no se puede deshacer.",
     "modified": "Modificado",
     "added": "Añadido",
     "deleted": "Eliminado",

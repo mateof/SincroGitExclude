@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Columns2, List, X, GitCommitHorizontal } from 'lucide-react'
+import { Columns2, List, X, GitCommitHorizontal, Undo2 } from 'lucide-react'
 import { parse } from 'diff2html'
 import { DiffViewer } from './DiffViewer'
 
@@ -11,9 +11,10 @@ interface DiffModalProps {
   title?: string
   selectable?: boolean
   onCommitSelected?: (files: string[]) => void
+  onDiscardSelected?: (files: string[]) => void
 }
 
-export function DiffModal({ open, onOpenChange, unifiedDiff, title, selectable, onCommitSelected }: DiffModalProps) {
+export function DiffModal({ open, onOpenChange, unifiedDiff, title, selectable, onCommitSelected, onDiscardSelected }: DiffModalProps) {
   const { t } = useTranslation('commits')
   const [format, setFormat] = useState<'side-by-side' | 'line-by-line'>('side-by-side')
 
@@ -55,6 +56,20 @@ export function DiffModal({ open, onOpenChange, unifiedDiff, title, selectable, 
             {title && <span className="text-sm font-medium truncate">{title}</span>}
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {selectable && onDiscardSelected && (
+              <button
+                onClick={() => {
+                  if (window.confirm(t('staging.discardConfirm'))) {
+                    onDiscardSelected(Array.from(selectedFiles))
+                  }
+                }}
+                disabled={selectedFiles.size === 0}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mr-1"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                {t('staging.discardSelected')} ({selectedFiles.size})
+              </button>
+            )}
             {selectable && onCommitSelected && (
               <button
                 onClick={() => onCommitSelected(Array.from(selectedFiles))}
