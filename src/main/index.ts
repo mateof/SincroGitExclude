@@ -12,6 +12,7 @@ import { CommitService } from './services/commit-service'
 import { WatcherService } from './services/watcher-service'
 import { ExportService } from './services/export-service'
 import { ImportService } from './services/import-service'
+import { SnapshotService } from './services/snapshot-service'
 import { registerAllHandlers } from './ipc/register-all'
 import log from 'electron-log'
 
@@ -20,6 +21,7 @@ log.transports.console.level = 'debug'
 
 let mainWindow: BrowserWindow | null = null
 let watcherService: WatcherService | null = null
+let snapshotService: SnapshotService | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -79,6 +81,9 @@ app.whenReady().then(async () => {
   const commitService = new CommitService(gitService)
   const exportService = new ExportService()
   const importService = new ImportService(gitExcludeService, watcherService)
+  snapshotService = new SnapshotService(gitService)
+  snapshotService.setDeploymentService(deploymentService)
+  watcherService.onFileChange((id, path) => snapshotService.onFileChanged(id, path))
 
   // 4. Register IPC handlers
   registerAllHandlers({
@@ -89,7 +94,8 @@ app.whenReady().then(async () => {
     gitService,
     gitExcludeService,
     exportService,
-    importService
+    importService,
+    snapshotService
   })
 
   // 5. Create window
@@ -132,5 +138,6 @@ app.on('before-quit', async () => {
   if (watcherService) {
     await watcherService.unwatchAll()
   }
+  snapshotService?.dispose()
   closeDb()
 })

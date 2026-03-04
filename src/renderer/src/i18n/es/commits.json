@@ -40,6 +40,15 @@
     "deleted": "Eliminado",
     "loadingFiles": "Cargando archivos modificados..."
   },
+  "snapshots": {
+    "toggle": "{{count}} snapshots",
+    "view": "Ver contenido del snapshot",
+    "apply": "Aplicar snapshot",
+    "deploy": "Desplegar desde snapshot",
+    "applyConfirm": "Aplicar este snapshot? El contenido actual del fichero se sobrescribira. Los cambios quedaran sin confirmar.",
+    "applied": "Snapshot aplicado correctamente",
+    "deployed": "Desplegado desde snapshot correctamente"
+  },
   "messages": {
     "committed": "Cambios confirmados correctamente",
     "checkedOut": "Version restaurada correctamente",

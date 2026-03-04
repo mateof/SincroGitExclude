@@ -2,12 +2,19 @@ import chokidar from 'chokidar'
 import { BrowserWindow } from 'electron'
 import log from 'electron-log'
 
+export type FileChangeCallback = (deploymentId: string, filePath: string) => void
+
 export class WatcherService {
   private watchers: Map<string, chokidar.FSWatcher> = new Map()
   private mainWindow: BrowserWindow | null = null
+  private onChangeCallbacks: FileChangeCallback[] = []
 
   setMainWindow(win: BrowserWindow): void {
     this.mainWindow = win
+  }
+
+  onFileChange(callback: FileChangeCallback): void {
+    this.onChangeCallbacks.push(callback)
   }
 
   async watchDeployment(deploymentId: string, fullPath: string): Promise<void> {
@@ -23,14 +30,16 @@ export class WatcherService {
       usePolling: false
     })
 
-    watcher.on('change', () => {
-      log.debug(`File changed: ${fullPath} (deployment: ${deploymentId})`)
+    watcher.on('change', (changedPath) => {
+      log.debug(`File changed: ${changedPath} (deployment: ${deploymentId})`)
       this.mainWindow?.webContents.send('watcher:file-changed', deploymentId)
+      for (const cb of this.onChangeCallbacks) cb(deploymentId, changedPath as string)
     })
 
-    watcher.on('add', () => {
-      log.debug(`File added: ${fullPath} (deployment: ${deploymentId})`)
+    watcher.on('add', (changedPath) => {
+      log.debug(`File added: ${changedPath} (deployment: ${deploymentId})`)
       this.mainWindow?.webContents.send('watcher:file-changed', deploymentId)
+      for (const cb of this.onChangeCallbacks) cb(deploymentId, changedPath as string)
     })
 
     watcher.on('unlink', () => {

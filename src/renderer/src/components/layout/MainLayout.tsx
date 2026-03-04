@@ -23,6 +23,12 @@ export function MainLayout() {
     }
   }, [fileExists, currentView, selectedFileId])
 
+  // Sync snapshot enabled state to main process on mount
+  useEffect(() => {
+    const enabled = localStorage.getItem('snapshotsEnabled') !== 'false'
+    window.api.invoke('snapshots:set-enabled', enabled)
+  }, [])
+
   // Subscribe to watcher events from main process
   useEffect(() => {
     const unsubChange = window.api.on('watcher:file-changed', async (deploymentId: unknown) => {

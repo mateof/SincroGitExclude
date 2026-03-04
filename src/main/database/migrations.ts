@@ -103,6 +103,30 @@ const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_deployment_tags_deployment_id ON deployment_tags(deployment_id);
       CREATE INDEX IF NOT EXISTS idx_deployment_tags_tag_id ON deployment_tags(tag_id);
     `
+  },
+  {
+    version: 8,
+    description: 'Add snapshots and snapshot_files tables for automatic file snapshots',
+    up: `
+      CREATE TABLE IF NOT EXISTS snapshots (
+        id TEXT PRIMARY KEY,
+        deployment_id TEXT NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
+        base_commit_hash TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS snapshot_files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        snapshot_id TEXT NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+        file_path TEXT NOT NULL,
+        content BLOB NOT NULL,
+        size INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_snapshots_deployment ON snapshots(deployment_id, base_commit_hash, created_at);
+      CREATE INDEX IF NOT EXISTS idx_snapshot_files_snapshot ON snapshot_files(snapshot_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshot_files_path ON snapshot_files(snapshot_id, file_path);
+    `
   }
 ]
 

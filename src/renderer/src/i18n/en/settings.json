@@ -47,6 +47,12 @@
       "confirm": "Confirm and restart"
     }
   },
+  "snapshots": {
+    "label": "Automatic snapshots",
+    "description": "Automatically save a snapshot every time a managed file changes. Snapshots are saved between commits and can be browsed in the history timeline.",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
   "about": {
     "label": "About",
     "version": "Version",

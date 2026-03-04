@@ -21,7 +21,8 @@ import {
   Database,
   FolderArchive,
   RotateCcw,
-  ExternalLink
+  ExternalLink,
+  Camera
 } from 'lucide-react'
 
 export function SettingsPage() {
@@ -30,6 +31,7 @@ export function SettingsPage() {
   const { tags, loadTags, deleteTag, loadFiles } = useFileStore()
   const { theme, setTheme } = useUIStore()
   const [autoExclude, setAutoExclude] = useState(() => localStorage.getItem('autoExclude') !== 'false')
+  const [snapshotsEnabled, setSnapshotsEnabled] = useState(() => localStorage.getItem('snapshotsEnabled') !== 'false')
   const [confirmDeleteTagId, setConfirmDeleteTagId] = useState<string | null>(null)
   const [exportLoading, setExportLoading] = useState(false)
   const [paths, setPaths] = useState<{ dbPath: string; filesDir: string; appDataDir: string; defaultDataDir: string; isCustom: boolean; appVersion: string } | null>(null)
@@ -66,6 +68,12 @@ export function SettingsPage() {
   const handleAutoExcludeChange = (value: boolean) => {
     setAutoExclude(value)
     localStorage.setItem('autoExclude', String(value))
+  }
+
+  const handleSnapshotsChange = (value: boolean) => {
+    setSnapshotsEnabled(value)
+    localStorage.setItem('snapshotsEnabled', String(value))
+    window.api.invoke('snapshots:set-enabled', value)
   }
 
   const handleChangeDir = async () => {
@@ -237,6 +245,37 @@ export function SettingsPage() {
               }`}
             >
               {t('autoExclude.disabled')}
+            </button>
+          </div>
+        </div>
+
+        {/* Snapshots */}
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Camera className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">{t('snapshots.label')}</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">{t('snapshots.description')}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleSnapshotsChange(true)}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                snapshotsEnabled
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary hover:bg-muted'
+              }`}
+            >
+              {t('snapshots.enabled')}
+            </button>
+            <button
+              onClick={() => handleSnapshotsChange(false)}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                !snapshotsEnabled
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary hover:bg-muted'
+              }`}
+            >
+              {t('snapshots.disabled')}
             </button>
           </div>
         </div>

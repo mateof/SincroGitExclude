@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { CommitInfo } from '@/types'
-import { Eye, FileCode, Rocket, RotateCcw, Scissors, Tag } from 'lucide-react'
+import { Camera, Eye, FileCode, Rocket, RotateCcw, Scissors, Tag } from 'lucide-react'
 
 interface CommitRowProps {
   commit: CommitInfo
@@ -12,9 +12,13 @@ interface CommitRowProps {
   onViewFile: () => void
   onNewDeployment?: () => void
   onExtractFiles?: () => void
+  snapshotCount?: number
+  onToggleSnapshots?: () => void
+  showSnapshots?: boolean
+  children?: React.ReactNode
 }
 
-export function CommitRow({ commit, isCurrent, isFirst, isLast, onCheckout, onViewDiff, onViewFile, onNewDeployment, onExtractFiles }: CommitRowProps) {
+export function CommitRow({ commit, isCurrent, isFirst, isLast, onCheckout, onViewDiff, onViewFile, onNewDeployment, onExtractFiles, snapshotCount, onToggleSnapshots, showSnapshots, children }: CommitRowProps) {
   const { t } = useTranslation('commits')
 
   const shortHash = commit.hash.substring(0, 7)
@@ -22,6 +26,7 @@ export function CommitRow({ commit, isCurrent, isFirst, isLast, onCheckout, onVi
   const formattedDate = formatRelativeDate(date)
 
   return (
+    <div>
     <div className="relative flex items-start gap-3 py-2 pl-0 group">
       {/* Timeline dot */}
       <div
@@ -94,7 +99,23 @@ export function CommitRow({ commit, isCurrent, isFirst, isLast, onCheckout, onVi
             <Scissors className="w-3.5 h-3.5" />
           </button>
         )}
+        {snapshotCount !== undefined && snapshotCount > 0 && onToggleSnapshots && (
+          <button
+            onClick={onToggleSnapshots}
+            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors ${
+              showSnapshots
+                ? 'bg-primary/20 text-primary'
+                : 'bg-secondary text-muted-foreground hover:text-foreground'
+            }`}
+            title={t('snapshots.toggle', { count: snapshotCount })}
+          >
+            <Camera className="w-3 h-3" />
+            <span>{snapshotCount}</span>
+          </button>
+        )}
       </div>
+    </div>
+    {showSnapshots && children}
     </div>
   )
 }

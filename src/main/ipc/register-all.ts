@@ -12,6 +12,8 @@ import { registerCommitHandlers } from './commit-handlers'
 import { registerExcludeHandlers } from './exclude-handlers'
 import { registerExportImportHandlers } from './export-import-handlers'
 import { registerAppHandlers } from './app-handlers'
+import { registerSnapshotHandlers } from './snapshot-handlers'
+import type { SnapshotService } from '../services/snapshot-service'
 
 interface Services {
   fileService: FileService
@@ -22,6 +24,7 @@ interface Services {
   gitExcludeService: GitExcludeService
   exportService: ExportService
   importService: ImportService
+  snapshotService: SnapshotService
 }
 
 export function registerAllHandlers(services: Services): void {
@@ -31,4 +34,5 @@ export function registerAllHandlers(services: Services): void {
   registerExcludeHandlers(services.gitExcludeService, services.gitService)
   registerExportImportHandlers(services.exportService, services.importService)
   registerAppHandlers()
+  registerSnapshotHandlers(services.snapshotService)
 }

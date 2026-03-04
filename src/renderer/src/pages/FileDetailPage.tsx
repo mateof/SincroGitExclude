@@ -247,6 +247,33 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     }
   }
 
+  const handleViewSnapshot = async (snapshotId: string) => {
+    const result = await window.api.invoke<IpcResult<FileContentEntry[]>>('snapshots:files', snapshotId)
+    if (result.success && result.data) {
+      setFileContentEntries(result.data)
+      setFileContentTitle(`Snapshot ${snapshotId.substring(0, 8)}`)
+      setFileModalOpen(true)
+    }
+  }
+
+  const handleApplySnapshot = async (snapshotId: string) => {
+    if (!confirm(tc('snapshots.applyConfirm', { ns: 'commits', defaultValue: 'Apply this snapshot? The current file content will be overwritten.' }))) return
+    const result = await window.api.invoke<IpcResult>('snapshots:apply', snapshotId)
+    if (result.success) {
+      await loadDeployments(fileId)
+      refreshChangedFileIds()
+    }
+  }
+
+  const handleDeploySnapshot = async (snapshotId: string) => {
+    const path = await window.api.selectDirectory()
+    if (!path) return
+    const result = await window.api.invoke<IpcResult<{ deploymentId: string }>>('snapshots:deploy', snapshotId, path)
+    if (result.success) {
+      await loadDeployments(fileId)
+    }
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* File header */}
@@ -369,6 +396,9 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
                 onViewFile={handleViewFile}
                 onNewDeployment={(commitHash) => handleNewDeployment(historyDeployment.id, commitHash)}
                 onExtractFiles={file.type === 'bundle' ? handleExtractFromCommit : undefined}
+                onViewSnapshot={handleViewSnapshot}
+                onApplySnapshot={handleApplySnapshot}
+                onDeploySnapshot={handleDeploySnapshot}
               />
             </div>
           ) : (

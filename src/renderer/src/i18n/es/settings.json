@@ -47,6 +47,12 @@
       "confirm": "Confirmar y reiniciar"
     }
   },
+  "snapshots": {
+    "label": "Snapshots automaticos",
+    "description": "Guardar automaticamente un snapshot cada vez que un fichero gestionado cambia. Los snapshots se guardan entre commits y se pueden consultar en la linea temporal del historial.",
+    "enabled": "Activado",
+    "disabled": "Desactivado"
+  },
   "about": {
     "label": "Acerca de",
     "version": "Version",

@@ -40,6 +40,15 @@
     "deleted": "Deleted",
     "loadingFiles": "Loading changed files..."
   },
+  "snapshots": {
+    "toggle": "{{count}} snapshots",
+    "view": "View snapshot content",
+    "apply": "Apply snapshot",
+    "deploy": "Deploy from snapshot",
+    "applyConfirm": "Apply this snapshot? The current file content will be overwritten. Changes will remain uncommitted.",
+    "applied": "Snapshot applied successfully",
+    "deployed": "Deployed from snapshot successfully"
+  },
   "messages": {
     "committed": "Changes committed successfully",
     "checkedOut": "Version checked out successfully",
