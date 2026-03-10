@@ -135,6 +135,42 @@ export function registerFileHandlers(fileService: FileService): void {
     }
   )
 
+  ipcMain.handle(
+    'files:add-to-bundle',
+    async (_, fileId: string, filePaths: string[], basePath: string) => {
+      try {
+        const added = await fileService.addFilesToBundle(fileId, filePaths, basePath)
+        return { success: true, data: added }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'files:remove-from-bundle',
+    async (_, fileId: string, filesToRemove: string[], deleteFromDisk: boolean = false) => {
+      try {
+        const removed = await fileService.removeFilesFromBundle(fileId, filesToRemove, deleteFromDisk)
+        return { success: true, data: removed }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'files:remove-from-deployment',
+    async (_, deploymentId: string, filesToRemove: string[]) => {
+      try {
+        const removed = fileService.removeFileFromDeployment(deploymentId, filesToRemove)
+        return { success: true, data: removed }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
+
   ipcMain.handle('files:list-entries', async (_, fileId: string) => {
     try {
       const entries = await fileService.listBundleEntries(fileId)

@@ -11,7 +11,8 @@
     "viewFile": "Ver contenido del archivo",
     "viewDiff": "Ver diferencias",
     "compareDiff": "Comparar",
-    "extractFiles": "Extraer ficheros"
+    "extractFiles": "Extraer ficheros",
+    "restoreFile": "Restaurar"
   },
   "diff": {
     "sideBySide": "Lado a lado",

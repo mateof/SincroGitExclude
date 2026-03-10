@@ -157,6 +157,123 @@ export class FileService {
     return this.getFile(id)!
   }
 
+  async addFilesToBundle(
+    fileId: string,
+    filePaths: string[],
+    basePath: string
+  ): Promise<string[]> {
+    const fileType = this.getFileType(fileId)
+    if (fileType !== 'bundle') throw new Error('Can only add files to bundles')
+
+    const repoPath = join(FILES_DIR, fileId)
+
+    // Copy each file preserving relative structure
+    const addedPaths: string[] = []
+    for (const filePath of filePaths) {
+      const relPath = relative(basePath, filePath).replace(/\\/g, '/')
+      if (relPath.startsWith('..')) continue
+      const destPath = join(repoPath, relPath)
+      mkdirSync(dirname(destPath), { recursive: true })
+      copyFileSync(filePath, destPath)
+      addedPaths.push(relPath)
+    }
+
+    if (addedPaths.length === 0) throw new Error('No valid files to add')
+
+    // Commit the new files
+    await this.gitService.addAllAndCommit(repoPath, `Add ${addedPaths.length} file(s)`)
+
+    // Update timestamp
+    getDb()
+      .prepare("UPDATE files SET updated_at = datetime('now') WHERE id = ?")
+      .run(fileId)
+
+    log.info(`Added ${addedPaths.length} files to bundle ${fileId}`)
+    return addedPaths
+  }
+
+  async removeFilesFromBundle(
+    fileId: string,
+    filesToRemove: string[],
+    deleteFromDisk: boolean = false
+  ): Promise<string[]> {
+    const fileType = this.getFileType(fileId)
+    if (fileType !== 'bundle') throw new Error('Can only remove files from bundles')
+
+    const repoPath = join(FILES_DIR, fileId)
+
+    // Check we're not removing ALL files
+    const currentFiles = await this.gitService.listFiles(repoPath)
+    const remaining = currentFiles.filter((f) => !filesToRemove.includes(f))
+    if (remaining.length === 0) throw new Error('Cannot remove all files from bundle')
+
+    // Delete the files from internal repo
+    const removed: string[] = []
+    for (const relPath of filesToRemove) {
+      const fullPath = join(repoPath, relPath)
+      if (existsSync(fullPath)) {
+        rmSync(fullPath)
+        removed.push(relPath)
+      }
+    }
+
+    if (removed.length === 0) throw new Error('No files found to remove')
+
+    // Commit the removal
+    await this.gitService.addAllAndCommit(repoPath, `Remove ${removed.length} file(s)`)
+
+    // Optionally delete from ALL active deployments
+    if (deleteFromDisk) {
+      const deployments = getDb()
+        .prepare("SELECT repo_path, file_relative_path FROM deployments WHERE file_id = ? AND is_active = 1")
+        .all(fileId) as Array<{ repo_path: string; file_relative_path: string }>
+
+      for (const dep of deployments) {
+        const deployBase = join(dep.repo_path, dep.file_relative_path)
+        for (const relPath of removed) {
+          const deployedFile = join(deployBase, relPath)
+          if (existsSync(deployedFile)) {
+            rmSync(deployedFile)
+          }
+        }
+      }
+    }
+
+    // Update timestamp
+    getDb()
+      .prepare("UPDATE files SET updated_at = datetime('now') WHERE id = ?")
+      .run(fileId)
+
+    log.info(`Removed ${removed.length} files from bundle ${fileId}${deleteFromDisk ? ' and all deployments' : ''}`)
+    return removed
+  }
+
+  removeFileFromDeployment(
+    deploymentId: string,
+    filesToRemove: string[]
+  ): string[] {
+    const dep = getDb()
+      .prepare('SELECT repo_path, file_relative_path FROM deployments WHERE id = ?')
+      .get(deploymentId) as { repo_path: string; file_relative_path: string } | undefined
+    if (!dep) throw new Error('Deployment not found')
+
+    const deployBase = join(dep.repo_path, dep.file_relative_path)
+    const removed: string[] = []
+
+    for (const relPath of filesToRemove) {
+      const deployedFile = join(deployBase, relPath)
+      if (existsSync(deployedFile)) {
+        rmSync(deployedFile)
+        removed.push(relPath)
+      }
+    }
+
+    if (removed.length === 0) throw new Error('No files found to remove')
+
+    log.info(`Removed ${removed.length} files from deployment ${deploymentId}`)
+    return removed
+  }
+
   async listBundleEntries(fileId: string): Promise<string[]> {
     const repoPath = join(FILES_DIR, fileId)
     return this.gitService.listFiles(repoPath)

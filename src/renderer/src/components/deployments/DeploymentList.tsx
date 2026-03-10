@@ -34,6 +34,9 @@ interface DeploymentListProps {
   onViewFile: (deployment: Deployment) => void
   onApplyFrom: (deployment: Deployment) => void
   onPartialDeploy?: (deployment: Deployment) => void
+  onAddToBundle?: (deployment: Deployment) => void
+  bundleEntries?: string[]
+  onRemoveFile?: (deployment: Deployment, entry: string) => void
   createSource: CreateSource | null
   onCreateSourceChange: (source: CreateSource | null) => void
 }
@@ -47,6 +50,9 @@ export function DeploymentList({
   onViewFile,
   onApplyFrom,
   onPartialDeploy,
+  onAddToBundle,
+  bundleEntries,
+  onRemoveFile,
   createSource,
   onCreateSourceChange
 }: DeploymentListProps) {
@@ -375,6 +381,9 @@ export function DeploymentList({
               onNewDeployment={(deploymentId) => onCreateSourceChange({ deploymentId })}
               onApplyFrom={onApplyFrom}
               onPartialDeploy={onPartialDeploy}
+              onAddToBundle={onAddToBundle}
+              bundleEntries={bundleEntries}
+              onRemoveFile={onRemoveFile}
             />
           ))}
         </div>

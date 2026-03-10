@@ -121,6 +121,18 @@ export function registerCommitHandlers(commitService: CommitService): void {
     }
   )
 
+  ipcMain.handle(
+    'commits:restore-files',
+    async (_, deploymentId: string, commitHash: string, filePaths: string[]) => {
+      try {
+        await commitService.restoreFilesFromCommit(deploymentId, commitHash, filePaths)
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
+
   ipcMain.handle('commits:discard-files', async (_, deploymentId: string, filePaths: string[]) => {
     try {
       await commitService.discardFiles(deploymentId, filePaths)

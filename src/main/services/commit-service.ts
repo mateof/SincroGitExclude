@@ -1,5 +1,5 @@
 import { join, dirname } from 'path'
-import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSync } from 'fs'
 import { FILES_DIR } from '../app-paths'
 import { getDb } from '../database/connection'
 import { GitService, CommitLogEntry } from '../git/git-service'
@@ -67,12 +67,19 @@ export class CommitService {
         }
       }
 
-      // Copy deployed files into internal repo
+      // Copy deployed files into internal repo, delete missing ones
+      const deletedPaths: string[] = []
       for (const relPath of bundleFiles) {
         const deployedPath = join(deployBasePath, relPath)
         const internalPath = join(internalRepoPath, relPath)
         if (existsSync(deployedPath)) {
           copyFileSync(deployedPath, internalPath)
+        } else {
+          // File was deleted from disk — remove from internal so git detects deletion
+          if (existsSync(internalPath)) {
+            rmSync(internalPath)
+            deletedPaths.push(relPath)
+          }
         }
       }
 
@@ -80,9 +87,11 @@ export class CommitService {
       const nameStatus = await this.gitService.getDiffNameStatus(internalRepoPath)
       const numstat = await this.gitService.getDiffNumstat(internalRepoPath)
 
-      // Restore originals
+      // Restore originals (including deleted files)
       for (const [relPath, content] of originals) {
-        writeFileSync(join(internalRepoPath, relPath), content)
+        const internalPath = join(internalRepoPath, relPath)
+        mkdirSync(dirname(internalPath), { recursive: true })
+        writeFileSync(internalPath, content)
       }
 
       // Merge data
@@ -123,13 +132,16 @@ export class CommitService {
           throw new Error('Deployed directory does not exist')
         }
 
-        const filesToCopy = selectedFiles || await this.gitService.listFiles(internalRepoPath)
-        for (const relPath of filesToCopy) {
+        const filesToProcess = selectedFiles || await this.gitService.listFiles(internalRepoPath)
+        for (const relPath of filesToProcess) {
           const deployedPath = join(deployBasePath, relPath)
           const internalPath = join(internalRepoPath, relPath)
           if (existsSync(deployedPath)) {
             mkdirSync(dirname(internalPath), { recursive: true })
             copyFileSync(deployedPath, internalPath)
+          } else if (existsSync(internalPath)) {
+            // File deleted from disk — remove from internal repo so git records the deletion
+            rmSync(internalPath)
           }
         }
 
@@ -276,21 +288,25 @@ export class CommitService {
           }
         }
 
-        // Copy deployed files into internal repo
+        // Copy deployed files into internal repo, delete missing ones
         for (const relPath of bundleFiles) {
           const deployedPath = join(deployBasePath, relPath)
           const internalPath = join(internalRepoPath, relPath)
           if (existsSync(deployedPath)) {
             copyFileSync(deployedPath, internalPath)
+          } else if (existsSync(internalPath)) {
+            rmSync(internalPath)
           }
         }
 
         // Get diff without content filter
         const diff = await this.gitService.getDiffWorkingTree(internalRepoPath, false)
 
-        // Restore originals
+        // Restore originals (including deleted files)
         for (const [relPath, content] of originals) {
-          writeFileSync(join(internalRepoPath, relPath), content)
+          const internalPath = join(internalRepoPath, relPath)
+          mkdirSync(dirname(internalPath), { recursive: true })
+          writeFileSync(internalPath, content)
         }
 
         return diff
@@ -413,6 +429,38 @@ export class CommitService {
 
     const content = await this.gitService.getFileAtCommit(internalRepoPath, commitHash, 'content')
     return [{ path: deployment.file_relative_path, content }]
+  }
+
+  async restoreFilesFromCommit(
+    deploymentId: string,
+    commitHash: string,
+    filePaths: string[]
+  ): Promise<void> {
+    const deployment = this.getDeployment(deploymentId)
+    const internalRepoPath = join(FILES_DIR, deployment.file_id)
+    const fileType = this.getFileType(deployment.file_id)
+    const isBundle = fileType === 'bundle'
+    const deployBasePath = isBundle
+      ? join(deployment.repo_path, deployment.file_relative_path)
+      : deployment.repo_path
+
+    for (const relPath of filePaths) {
+      const gitPath = isBundle ? relPath : 'content'
+      const content = await this.gitService.getFileAtCommit(
+        internalRepoPath,
+        commitHash,
+        gitPath
+      )
+
+      const deployedPath = isBundle
+        ? join(deployBasePath, relPath)
+        : join(deployment.repo_path, deployment.file_relative_path)
+
+      mkdirSync(dirname(deployedPath), { recursive: true })
+      writeFileSync(deployedPath, content, 'utf-8')
+    }
+
+    log.info(`Restored ${filePaths.length} file(s) from commit ${commitHash.substring(0, 7)} for deployment ${deploymentId}`)
   }
 
   async getCrossDiff(

@@ -35,7 +35,8 @@ import {
   BookX,
   GitMerge,
   Undo2,
-  Scissors
+  Scissors,
+  FileMinus
 } from 'lucide-react'
 
 const TAG_COLORS = [
@@ -59,6 +60,9 @@ interface DeploymentCardProps {
   onNewDeployment: (deploymentId: string) => void
   onApplyFrom: (deployment: Deployment) => void
   onPartialDeploy?: (deployment: Deployment) => void
+  onAddToBundle?: (deployment: Deployment) => void
+  bundleEntries?: string[]
+  onRemoveFile?: (deployment: Deployment, entry: string) => void
 }
 
 export function DeploymentCard({
@@ -70,7 +74,10 @@ export function DeploymentCard({
   onViewFile,
   onNewDeployment,
   onApplyFrom,
-  onPartialDeploy
+  onPartialDeploy,
+  onAddToBundle,
+  bundleEntries,
+  onRemoveFile
 }: DeploymentCardProps) {
   const { t, i18n } = useTranslation('deployments')
   const { t: tc } = useTranslation('common')
@@ -83,6 +90,7 @@ export function DeploymentCard({
   const [descriptionDraft, setDescriptionDraft] = useState('')
   const [showTagEditor, setShowTagEditor] = useState(false)
   const [showTagCreate, setShowTagCreate] = useState(false)
+  const [showFiles, setShowFiles] = useState(false)
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[4].value)
   const tagEditorRef = useRef<HTMLDivElement>(null)
@@ -182,6 +190,7 @@ export function DeploymentCard({
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [showTagEditor])
+
 
   return (
     <div
@@ -512,6 +521,34 @@ export function DeploymentCard({
               </button>
             )}
 
+            {/* Add files to bundle */}
+            {isBundle && onAddToBundle && (
+              <button
+                onClick={() => onAddToBundle(deployment)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                data-tooltip={t('addToBundle', { ns: 'files', defaultValue: 'Add files' })}
+                aria-label={t('addToBundle', { ns: 'files', defaultValue: 'Add files' })}
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {/* Toggle bundle file list */}
+            {isBundle && bundleEntries && bundleEntries.length > 0 && (
+              <button
+                onClick={() => setShowFiles(!showFiles)}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                  showFiles
+                    ? 'bg-primary/10 text-primary'
+                    : 'hover:bg-secondary text-muted-foreground'
+                }`}
+                data-tooltip={t('bundleFiles', { ns: 'files', defaultValue: 'Files' })}
+              >
+                <FileMinus className="w-3.5 h-3.5" />
+                <span className="text-[10px]">{bundleEntries.length}</span>
+              </button>
+            )}
+
             {/* Edit tags */}
             <div className="relative" ref={tagEditorRef}>
               <button
@@ -779,6 +816,45 @@ export function DeploymentCard({
           </>
         )}
       </div>
+
+      {/* Collapsible bundle file list */}
+      {showFiles && isBundle && bundleEntries && bundleEntries.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-border">
+          <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+            {t('bundleEntries', { ns: 'files', defaultValue: 'Bundle files' })} ({bundleEntries.length})
+          </div>
+          <div className="space-y-0.5 max-h-[200px] overflow-y-auto">
+            {bundleEntries.map((entry) => (
+              <div
+                key={entry}
+                className="group flex items-center gap-1.5 px-2 py-1 rounded hover:bg-secondary/50 transition-colors"
+              >
+                <span className="text-[11px] font-mono text-muted-foreground truncate flex-1" title={entry}>
+                  {entry}
+                </span>
+                {onRemoveFile && bundleEntries.length > 1 && (
+                  <button
+                    onClick={() => onRemoveFile(deployment, entry)}
+                    className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-all"
+                    title={t('removeFile', { ns: 'files', defaultValue: 'Remove' })}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {onAddToBundle && (
+            <button
+              onClick={() => onAddToBundle(deployment)}
+              className="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              {t('addFiles', { ns: 'files', defaultValue: 'Add files' })}
+            </button>
+          )}
+        </div>
+      )}
 
       <DeleteConfirmDialog
         open={showDeleteDialog}

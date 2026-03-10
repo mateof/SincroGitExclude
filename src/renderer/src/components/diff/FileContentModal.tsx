@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import hljs from 'highlight.js/lib/common'
 import { Marked } from 'marked'
-import { ChevronDown, ChevronRight, FileCode, BookOpen, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileCode, BookOpen, X, RotateCcw } from 'lucide-react'
 
 export interface FileContentEntry {
   path: string
@@ -14,6 +14,7 @@ interface FileContentModalProps {
   onOpenChange: (open: boolean) => void
   files: FileContentEntry[]
   title?: string
+  onRestoreFile?: (filePath: string) => void
 }
 
 const LANG_MAP: Record<string, string> = {
@@ -113,7 +114,8 @@ export function FileContentModal({
   open,
   onOpenChange,
   files,
-  title
+  title,
+  onRestoreFile
 }: FileContentModalProps) {
   const { t } = useTranslation('commits')
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
@@ -217,6 +219,21 @@ export function FileContentModal({
                     {t('diff.lines', { count: entry.lineCount })}
                   </span>
                 </button>
+
+                {/* Restore file button */}
+                {onRestoreFile && files.length > 1 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRestoreFile(entry.path)
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
+                    title={t('actions.restoreFile', { defaultValue: 'Restore this file' })}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    {t('actions.restoreFile', { defaultValue: 'Restore' })}
+                  </button>
+                )}
 
                 {/* Markdown toggle */}
                 {entry.isMarkdown && !collapsed.has(index) && (

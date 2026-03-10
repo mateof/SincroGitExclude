@@ -15,7 +15,7 @@ import { DeleteConfirmDialog } from '@/components/deployments/DeleteConfirmDialo
 import { ApplyFromDialog } from '@/components/deployments/ApplyFromDialog'
 import { PartialDeployDialog } from '@/components/deployments/PartialDeployDialog'
 import type { Deployment, CommitInfo, IpcResult } from '@/types'
-import { Pencil, Trash2, ArrowLeft, FolderArchive, ChevronDown, ChevronRight } from 'lucide-react'
+import { Pencil, Trash2, ArrowLeft, FolderArchive, HardDrive, GitBranch } from 'lucide-react'
 
 interface FileDetailPageProps {
   fileId: string
@@ -35,7 +35,6 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
 
   // Bundle entries
   const [bundleEntries, setBundleEntries] = useState<string[]>([])
-  const [entriesExpanded, setEntriesExpanded] = useState(false)
 
   useEffect(() => {
     if (file?.type === 'bundle') {
@@ -80,6 +79,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
   const [fileModalOpen, setFileModalOpen] = useState(false)
   const [fileContentEntries, setFileContentEntries] = useState<FileContentEntry[]>([])
   const [fileContentTitle, setFileContentTitle] = useState('')
+  const [fileContentCommitHash, setFileContentCommitHash] = useState<string | null>(null)
 
   // Apply from dialog state
   const [applyFromDeployment, setApplyFromDeployment] = useState<Deployment | null>(null)
@@ -87,6 +87,10 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
   // Partial deploy dialog state
   const [partialDeployment, setPartialDeployment] = useState<Deployment | null>(null)
   const [partialCommitHash, setPartialCommitHash] = useState<string | undefined>(undefined)
+
+  // Unified remove file dialog state
+  const [removeFileEntry, setRemoveFileEntry] = useState<string | null>(null)
+  const [removeFileDeployment, setRemoveFileDeployment] = useState<Deployment | null>(null)
 
   if (!file) {
     return null
@@ -113,6 +117,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     if (result.success && result.data) {
       setFileContentEntries(result.data)
       setFileContentTitle(deployment.fileRelativePath)
+      setFileContentCommitHash(null)
       setFileModalOpen(true)
     }
   }
@@ -160,6 +165,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     if (result.success && result.data) {
       setFileContentEntries(result.data)
       setFileContentTitle(`${historyDeployment.fileRelativePath} @ ${hash.substring(0, 7)}`)
+      setFileContentCommitHash(hash)
       setFileModalOpen(true)
     }
   }
@@ -252,6 +258,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     if (result.success && result.data) {
       setFileContentEntries(result.data)
       setFileContentTitle(`Snapshot ${snapshotId.substring(0, 8)}`)
+      setFileContentCommitHash(null)
       setFileModalOpen(true)
     }
   }
@@ -262,6 +269,105 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
     if (result.success) {
       await loadDeployments(fileId)
       refreshChangedFileIds()
+    }
+  }
+
+  const handleRestoreFileFromCommit = async (filePath: string) => {
+    if (!historyDeployment || !fileContentCommitHash) return
+    const result = await window.api.invoke<IpcResult>(
+      'commits:restore-files',
+      historyDeployment.id,
+      fileContentCommitHash,
+      [filePath]
+    )
+    if (result.success) {
+      refreshChangedFileIds()
+    }
+  }
+
+  const handleAddFilesToBundle = async (deployment: Deployment) => {
+    const deployBasePath = `${deployment.repoPath}/${deployment.fileRelativePath}`
+
+    const selectResult = await window.api.invoke<IpcResult<{
+      type: string
+      filePaths?: string[]
+      filePath?: string
+      basePath?: string
+    }>>('dialog:select-items', deployBasePath)
+    if (!selectResult?.success || !selectResult.data) return
+
+    const data = selectResult.data
+    let filePaths: string[]
+
+    if (data.type === 'bundle' && data.filePaths) {
+      filePaths = data.filePaths
+    } else if (data.type === 'file' && data.filePath) {
+      filePaths = [data.filePath]
+    } else {
+      return
+    }
+
+    const normalizedBase = deployBasePath.replace(/\\/g, '/')
+    const validPaths = filePaths.filter((fp) => {
+      const normalized = fp.replace(/\\/g, '/')
+      return normalized.startsWith(normalizedBase + '/') || normalized === normalizedBase
+    })
+    if (validPaths.length === 0) {
+      alert(t('addFilesOutside'))
+      return
+    }
+
+    const result = await window.api.invoke<IpcResult<string[]>>(
+      'files:add-to-bundle',
+      fileId,
+      validPaths,
+      deployBasePath
+    )
+    if (result.success) {
+      const entries = await loadEntries(fileId)
+      setBundleEntries(entries)
+    }
+  }
+
+  const handleRemoveFile = (deployment: Deployment, entry: string) => {
+    if (bundleEntries.length <= 1) return
+    setRemoveFileEntry(entry)
+    setRemoveFileDeployment(deployment)
+  }
+
+  const closeRemoveDialog = () => {
+    setRemoveFileEntry(null)
+    setRemoveFileDeployment(null)
+  }
+
+  const confirmDeleteFromDisk = async () => {
+    if (!removeFileEntry || !removeFileDeployment) return
+    const result = await window.api.invoke<IpcResult<string[]>>(
+      'files:remove-from-deployment',
+      removeFileDeployment.id,
+      [removeFileEntry]
+    )
+    closeRemoveDialog()
+    if (result.success) {
+      refreshChangedFileIds()
+      await loadDeployments(fileId)
+    }
+  }
+
+  const confirmStopSyncing = async (deleteFromDisk: boolean) => {
+    if (!removeFileEntry) return
+    const result = await window.api.invoke<IpcResult<string[]>>(
+      'files:remove-from-bundle',
+      fileId,
+      [removeFileEntry],
+      deleteFromDisk
+    )
+    closeRemoveDialog()
+    if (result.success) {
+      const entries = await loadEntries(fileId)
+      setBundleEntries(entries)
+      refreshChangedFileIds()
+      await loadDeployments(fileId)
     }
   }
 
@@ -313,28 +419,6 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
         </div>
       </div>
 
-      {/* Bundle entries */}
-      {file.type === 'bundle' && bundleEntries.length > 0 && (
-        <div className="mb-4 border border-border rounded-lg overflow-hidden">
-          <button
-            onClick={() => setEntriesExpanded(!entriesExpanded)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary/50 transition-colors"
-          >
-            {entriesExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            {t('bundleEntries', { defaultValue: 'Bundle files' })} ({bundleEntries.length})
-          </button>
-          {entriesExpanded && (
-            <div className="border-t border-border bg-secondary/30 px-3 py-2 space-y-0.5 max-h-48 overflow-y-auto">
-              {bundleEntries.map((entry) => (
-                <div key={entry} className="text-[11px] font-mono text-muted-foreground truncate" title={entry}>
-                  {entry}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-4 border-b border-border">
         <button
@@ -373,6 +457,9 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
           onViewFile={handleViewCurrentFile}
           onApplyFrom={handleApplyFrom}
           onPartialDeploy={file.type === 'bundle' ? handlePartialDeploy : undefined}
+          onAddToBundle={file.type === 'bundle' ? handleAddFilesToBundle : undefined}
+          bundleEntries={file.type === 'bundle' ? bundleEntries : undefined}
+          onRemoveFile={file.type === 'bundle' ? handleRemoveFile : undefined}
           createSource={createSource}
           onCreateSourceChange={setCreateSource}
         />
@@ -428,6 +515,7 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
         onOpenChange={setFileModalOpen}
         files={fileContentEntries}
         title={fileContentTitle}
+        onRestoreFile={fileContentCommitHash && file.type === 'bundle' ? handleRestoreFileFromCommit : undefined}
       />
 
       {/* Dialogs */}
@@ -497,6 +585,62 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
           onCreated={handlePartialCreated}
           initialCommitHash={partialCommitHash}
         />
+      )}
+
+      {/* Remove file confirmation dialog (unified) */}
+      {removeFileEntry && removeFileDeployment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={closeRemoveDialog} />
+          <div className="relative bg-card border border-border rounded-xl shadow-xl p-5 max-w-md w-full mx-4 space-y-4">
+            <h3 className="text-sm font-semibold">{t('removeFile')}</h3>
+            <p className="text-xs text-muted-foreground">
+              {t('removeFileConfirm', { file: removeFileEntry })}
+            </p>
+            <div className="space-y-2">
+              {/* Option 1: Delete from disk (this deployment only) */}
+              <button
+                onClick={confirmDeleteFromDisk}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-xs border border-border rounded-lg hover:bg-secondary transition-colors text-left"
+              >
+                <HardDrive className="w-4 h-4 shrink-0 text-warning" />
+                <div>
+                  <div className="font-medium">{t('removeFromDeploymentDelete')}</div>
+                  <div className="text-muted-foreground mt-0.5">{t('removeFromDeploymentDeleteHint')}</div>
+                </div>
+              </button>
+              {/* Option 2: Stop syncing (remove from bundle, keep on disk) */}
+              <button
+                onClick={() => confirmStopSyncing(false)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-xs border border-border rounded-lg hover:bg-secondary transition-colors text-left"
+              >
+                <GitBranch className="w-4 h-4 shrink-0 text-primary" />
+                <div>
+                  <div className="font-medium">{t('removeFromBundleOnly')}</div>
+                  <div className="text-muted-foreground mt-0.5">{t('removeFromBundleOnlyHint')}</div>
+                </div>
+              </button>
+              {/* Option 3: Stop syncing AND delete from disk */}
+              <button
+                onClick={() => confirmStopSyncing(true)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-xs border border-border rounded-lg hover:bg-destructive/10 hover:border-destructive/50 transition-colors text-left"
+              >
+                <HardDrive className="w-4 h-4 shrink-0 text-destructive" />
+                <div>
+                  <div className="font-medium text-destructive">{t('removeFromBundleAndDisk')}</div>
+                  <div className="text-muted-foreground mt-0.5">{t('removeFromBundleAndDiskHint')}</div>
+                </div>
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={closeRemoveDialog}
+                className="px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary transition-colors"
+              >
+                {tc('actions.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -339,13 +339,14 @@ export function registerAppHandlers(): void {
   })
 
   // Unified selection: single dialog that auto-detects file vs folder vs multiple
-  ipcMain.handle('dialog:select-items', async () => {
+  ipcMain.handle('dialog:select-items', async (_, defaultPath?: string) => {
     const win = BrowserWindow.getFocusedWindow()
     if (!win) return null
 
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile', 'openDirectory', 'multiSelections'],
-      filters: [{ name: 'All Files', extensions: ['*'] }]
+      filters: [{ name: 'All Files', extensions: ['*'] }],
+      defaultPath: defaultPath || undefined
     })
 
     if (result.canceled || result.filePaths.length === 0) return null

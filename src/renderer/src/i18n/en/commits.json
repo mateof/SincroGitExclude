@@ -11,7 +11,8 @@
     "viewFile": "View file content",
     "viewDiff": "View diff",
     "compareDiff": "Compare",
-    "extractFiles": "Extract files"
+    "extractFiles": "Extract files",
+    "restoreFile": "Restore"
   },
   "diff": {
     "sideBySide": "Side by side",
