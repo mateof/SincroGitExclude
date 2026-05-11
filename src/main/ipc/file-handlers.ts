@@ -179,4 +179,24 @@ export function registerFileHandlers(fileService: FileService): void {
       return { success: false, error: (error as Error).message }
     }
   })
+
+  // --- Ignore patterns handlers ---
+
+  ipcMain.handle('files:get-ignore-patterns', async (_, fileId: string) => {
+    try {
+      const patterns = fileService.getRawIgnorePatterns(fileId)
+      return { success: true, data: patterns }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('files:set-ignore-patterns', async (_, fileId: string, patterns: string) => {
+    try {
+      fileService.setIgnorePatterns(fileId, patterns)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
 }

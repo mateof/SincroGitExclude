@@ -68,6 +68,15 @@
     "warning": "Esto eliminara permanentemente el fichero de la aplicacion. Todo el historial de versiones y commits se perdera.",
     "deploymentsHint": "Elige si tambien quieres eliminar los ficheros desplegados del disco para cada despliegue:"
   },
+  "ignorePatterns": {
+    "title": "Patrones de exclusion de sincronizacion",
+    "description": "Los ficheros y carpetas que coincidan con estos patrones se excluiran de la sincronizacion. Un patron por linea.",
+    "placeholder": "dist/\nnode_modules/\n*.log\nbuild/",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "edit": "Patrones de exclusion",
+    "empty": "No hay patrones de exclusion configurados"
+  },
   "messages": {
     "created": "Archivo creado correctamente",
     "updated": "Archivo actualizado correctamente",

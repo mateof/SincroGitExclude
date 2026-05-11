@@ -180,8 +180,49 @@ export class FileService {
 
     if (addedPaths.length === 0) throw new Error('No valid files to add')
 
-    // Commit the new files
-    await this.gitService.addAllAndCommit(repoPath, `Add ${addedPaths.length} file(s)`)
+    // Commit on all active deployment branches so files are tracked everywhere
+    const deployments = getDb()
+      .prepare("SELECT branch_name FROM deployments WHERE file_id = ? AND is_active = 1")
+      .all(fileId) as Array<{ branch_name: string }>
+
+    await this.gitService.withLock(repoPath, async () => {
+      const commitMsg = `Add ${addedPaths.length} file(s)`
+
+      // Commit on current branch first
+      await this.gitService.addAllAndCommit(repoPath, commitMsg)
+
+      // Cherry-pick to each deployment branch that's not currently checked out
+      const currentBranch = await this.gitService.getCurrentBranch(repoPath)
+      const commitHash = await this.gitService.getHeadHash(repoPath)
+
+      for (const dep of deployments) {
+        if (dep.branch_name === currentBranch) continue
+        try {
+          await this.gitService.checkout(repoPath, dep.branch_name)
+          // Copy files and commit directly (cherry-pick can conflict)
+          for (const relPath of addedPaths) {
+            const srcPath = join(basePath, relPath)
+            const destPath = join(repoPath, relPath)
+            if (existsSync(srcPath)) {
+              mkdirSync(dirname(destPath), { recursive: true })
+              copyFileSync(srcPath, destPath)
+            }
+          }
+          try {
+            await this.gitService.addAllAndCommit(repoPath, commitMsg)
+          } catch {
+            // Already has these files — no changes to commit
+          }
+        } catch (err) {
+          log.warn(`Could not add files to branch ${dep.branch_name}:`, err)
+        }
+      }
+
+      // Return to original branch
+      if (currentBranch) {
+        await this.gitService.checkout(repoPath, currentBranch)
+      }
+    })
 
     // Update timestamp
     getDb()
@@ -346,6 +387,28 @@ export class FileService {
       `Created ${isBundle ? 'bundle' : 'file'} from commit ${commitHash.substring(0, 7)}: ${name} (${id})`
     )
     return this.getFile(id)!
+  }
+
+  getIgnorePatterns(fileId: string): string[] {
+    const row = getDb()
+      .prepare('SELECT ignore_patterns FROM files WHERE id = ?')
+      .get(fileId) as { ignore_patterns: string } | undefined
+    const raw = row?.ignore_patterns ?? ''
+    return raw.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#'))
+  }
+
+  getRawIgnorePatterns(fileId: string): string {
+    const row = getDb()
+      .prepare('SELECT ignore_patterns FROM files WHERE id = ?')
+      .get(fileId) as { ignore_patterns: string } | undefined
+    return row?.ignore_patterns ?? ''
+  }
+
+  setIgnorePatterns(fileId: string, patterns: string): void {
+    getDb()
+      .prepare('UPDATE files SET ignore_patterns = ? WHERE id = ?')
+      .run(patterns, fileId)
+    log.info(`Updated ignore patterns for ${fileId}`)
   }
 
   // --- Tag methods ---

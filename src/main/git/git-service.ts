@@ -55,7 +55,18 @@ export class GitService {
     await git.addConfig('user.email', 'sincrogitexclude@local')
     // Enable long paths on Windows
     await git.addConfig('core.longpaths', 'true')
+    // Ignore file mode changes — we only care about content
+    await git.addConfig('core.fileMode', 'false')
     log.info(`Initialized git repo at ${repoPath}`)
+  }
+
+  async ensureCoreFileMode(repoPath: string): Promise<void> {
+    const git = this.getGit(repoPath)
+    try {
+      await git.addConfig('core.fileMode', 'false')
+    } catch {
+      // Ignore if it fails
+    }
   }
 
   async createBranch(
@@ -75,6 +86,11 @@ export class GitService {
   async checkout(repoPath: string, branchOrCommit: string): Promise<void> {
     const git = this.getGit(repoPath)
     await git.checkout(branchOrCommit)
+  }
+
+  async deleteBranch(repoPath: string, branchName: string): Promise<void> {
+    const git = this.getGit(repoPath)
+    await git.deleteLocalBranch(branchName, true)
   }
 
   async addAndCommit(
@@ -163,9 +179,9 @@ export class GitService {
     }
   }
 
-  async getDiffWorkingTree(repoPath: string, filterContent: boolean = true): Promise<string> {
+  async getDiffWorkingTree(repoPath: string, filterContent: boolean = true, staged: boolean = false): Promise<string> {
     const git = this.getGit(repoPath)
-    const args = filterContent ? ['HEAD', '--', 'content'] : ['HEAD']
+    const args = staged ? ['--cached'] : filterContent ? ['HEAD', '--', 'content'] : ['HEAD']
     return git.diff(args)
   }
 
@@ -224,10 +240,15 @@ export class GitService {
     return branches.current
   }
 
-  async hasChanges(repoPath: string): Promise<boolean> {
+  async hasChanges(repoPath: string, staged: boolean = false): Promise<boolean> {
     const git = this.getGit(repoPath)
-    const status = await git.status()
-    return status.modified.length > 0 || status.not_added.length > 0
+    if (staged) {
+      const status = await git.status()
+      return status.staged.length > 0
+    }
+    // Check working tree vs HEAD by looking at diff output
+    const result = await git.diff(['HEAD'])
+    return result.trim() !== ''
   }
 
   async stageAndCheck(repoPath: string, filePath: string): Promise<boolean> {
@@ -247,9 +268,20 @@ export class GitService {
     await git.checkout(['.'])
   }
 
-  async getDiffNameStatus(repoPath: string): Promise<Array<{ status: string; path: string }>> {
+  async addAll(repoPath: string): Promise<void> {
     const git = this.getGit(repoPath)
-    const raw = await git.diff(['HEAD', '--name-status'])
+    await git.add(['-A'])
+  }
+
+  async resetAll(repoPath: string): Promise<void> {
+    const git = this.getGit(repoPath)
+    await git.reset(['HEAD'])
+  }
+
+  async getDiffNameStatus(repoPath: string, staged: boolean = false): Promise<Array<{ status: string; path: string }>> {
+    const git = this.getGit(repoPath)
+    const args = staged ? ['--cached', '--name-status'] : ['HEAD', '--name-status']
+    const raw = await git.diff(args)
     if (!raw.trim()) return []
     return raw
       .trim()
@@ -260,9 +292,10 @@ export class GitService {
       })
   }
 
-  async getDiffNumstat(repoPath: string): Promise<Array<{ additions: number; deletions: number; path: string }>> {
+  async getDiffNumstat(repoPath: string, staged: boolean = false): Promise<Array<{ additions: number; deletions: number; path: string }>> {
     const git = this.getGit(repoPath)
-    const raw = await git.diff(['HEAD', '--numstat'])
+    const args = staged ? ['--cached', '--numstat'] : ['HEAD', '--numstat']
+    const raw = await git.diff(args)
     if (!raw.trim()) return []
     return raw
       .trim()

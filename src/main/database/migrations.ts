@@ -127,6 +127,13 @@ const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_snapshot_files_snapshot ON snapshot_files(snapshot_id);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshot_files_path ON snapshot_files(snapshot_id, file_path);
     `
+  },
+  {
+    version: 9,
+    description: 'Add ignore_patterns column to files for bundle sync filtering',
+    up: `
+      ALTER TABLE files ADD COLUMN ignore_patterns TEXT NOT NULL DEFAULT '';
+    `
   }
 ]
 

@@ -68,6 +68,15 @@
     "warning": "This will permanently remove the file from the application. All version history and commits will be lost.",
     "deploymentsHint": "Choose whether to also delete deployed files from disk for each deployment:"
   },
+  "ignorePatterns": {
+    "title": "Sync ignore patterns",
+    "description": "Files and folders matching these patterns will be excluded from sync. One pattern per line.",
+    "placeholder": "dist/\nnode_modules/\n*.log\nbuild/",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Ignore patterns",
+    "empty": "No ignore patterns configured"
+  },
   "messages": {
     "created": "File created successfully",
     "updated": "File updated successfully",

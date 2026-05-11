@@ -15,7 +15,7 @@ import { DeleteConfirmDialog } from '@/components/deployments/DeleteConfirmDialo
 import { ApplyFromDialog } from '@/components/deployments/ApplyFromDialog'
 import { PartialDeployDialog } from '@/components/deployments/PartialDeployDialog'
 import type { Deployment, CommitInfo, IpcResult } from '@/types'
-import { Pencil, Trash2, ArrowLeft, FolderArchive, HardDrive, GitBranch } from 'lucide-react'
+import { Pencil, Trash2, ArrowLeft, FolderArchive, HardDrive, GitBranch, EyeOff } from 'lucide-react'
 
 interface FileDetailPageProps {
   fileId: string
@@ -92,6 +92,25 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
   const [removeFileEntry, setRemoveFileEntry] = useState<string | null>(null)
   const [removeFileDeployment, setRemoveFileDeployment] = useState<Deployment | null>(null)
 
+  // Ignore patterns state
+  const [showIgnorePatterns, setShowIgnorePatterns] = useState(false)
+  const [ignorePatternsDraft, setIgnorePatternsDraft] = useState('')
+
+  const openIgnorePatterns = async () => {
+    const result = await window.api.invoke<IpcResult<string>>('files:get-ignore-patterns', fileId)
+    if (result.success) {
+      setIgnorePatternsDraft(result.data ?? '')
+      setShowIgnorePatterns(true)
+    }
+  }
+
+  const saveIgnorePatterns = async () => {
+    await window.api.invoke<IpcResult>('files:set-ignore-patterns', fileId, ignorePatternsDraft)
+    setShowIgnorePatterns(false)
+    await loadDeployments(fileId)
+    refreshChangedFileIds()
+  }
+
   if (!file) {
     return null
   }
@@ -127,13 +146,16 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
       'commits:diff-working',
       deployment.id
     )
-    if (result.success && result.data) {
-      setDiffContent(result.data)
-      setDiffTitle(`${deployment.fileRelativePath} - uncommitted changes`)
-      setDiffDeployment(deployment)
-      setDiffIsWorking(true)
-      setDiffModalOpen(true)
+    if (!result.success) {
+      console.error('View diff failed:', result.error)
+      alert(`Error: ${result.error}`)
+      return
     }
+    setDiffContent(result.data ?? '')
+    setDiffTitle(`${deployment.fileRelativePath} - uncommitted changes`)
+    setDiffDeployment(deployment)
+    setDiffIsWorking(true)
+    setDiffModalOpen(true)
   }
 
   const handleViewCommitDiff = async (hash1: string, hash2?: string) => {
@@ -402,6 +424,16 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {file.type === 'bundle' && (
+            <button
+              onClick={openIgnorePatterns}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary transition-colors"
+              data-tooltip={t('ignorePatterns.edit')}
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+              {t('ignorePatterns.edit')}
+            </button>
+          )}
           <button
             onClick={() => setShowEdit(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary transition-colors"
@@ -637,6 +669,40 @@ export function FileDetailPage({ fileId }: FileDetailPageProps) {
                 className="px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary transition-colors"
               >
                 {tc('actions.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ignore patterns modal */}
+      {showIgnorePatterns && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setShowIgnorePatterns(false)} />
+          <div className="relative bg-card border border-border rounded-xl shadow-xl p-5 max-w-md w-full mx-4 space-y-4">
+            <h3 className="text-sm font-semibold">{t('ignorePatterns.title')}</h3>
+            <p className="text-xs text-muted-foreground">
+              {t('ignorePatterns.description')}
+            </p>
+            <textarea
+              value={ignorePatternsDraft}
+              onChange={(e) => setIgnorePatternsDraft(e.target.value)}
+              placeholder={t('ignorePatterns.placeholder')}
+              className="w-full h-40 px-3 py-2 text-xs font-mono bg-secondary border border-border rounded-lg outline-none focus:ring-1 focus:ring-primary resize-none"
+              spellCheck={false}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowIgnorePatterns(false)}
+                className="px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary transition-colors"
+              >
+                {t('ignorePatterns.cancel')}
+              </button>
+              <button
+                onClick={saveIgnorePatterns}
+                className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                {t('ignorePatterns.save')}
               </button>
             </div>
           </div>

@@ -1,7 +1,8 @@
 import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
+import { existsSync, readdirSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { ensureDirectories } from './app-paths'
+import { ensureDirectories, FILES_DIR } from './app-paths'
 import { getDb, closeDb } from './database/connection'
 import { runMigrations } from './database/migrations'
 import { GitService } from './git/git-service'
@@ -84,6 +85,23 @@ app.whenReady().then(async () => {
   snapshotService = new SnapshotService(gitService)
   snapshotService.setDeploymentService(deploymentService)
   watcherService.onFileChange((id, path) => snapshotService.onFileChanged(id, path))
+
+  // 3b. Apply core.fileMode=false to existing internal repos to avoid
+  // false-positive "changed" detection due to file mode differences
+  try {
+    if (existsSync(FILES_DIR)) {
+      for (const entry of readdirSync(FILES_DIR, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          const repoPath = join(FILES_DIR, entry.name)
+          if (existsSync(join(repoPath, '.git'))) {
+            await gitService.ensureCoreFileMode(repoPath)
+          }
+        }
+      }
+    }
+  } catch (err) {
+    log.warn('Could not apply core.fileMode to existing repos:', err)
+  }
 
   // 4. Register IPC handlers
   registerAllHandlers({

@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSyn
 import { FILES_DIR } from '../app-paths'
 import { getDb } from '../database/connection'
 import { GitService, CommitLogEntry } from '../git/git-service'
+import { scanDirectory, matchesAnyPattern } from '../utils/file-scanner'
 import log from 'electron-log'
 
 interface DeploymentRow {
@@ -32,6 +33,14 @@ export class CommitService {
     return row?.type ?? 'file'
   }
 
+  private getIgnorePatterns(fileId: string): string[] {
+    const row = getDb()
+      .prepare('SELECT ignore_patterns FROM files WHERE id = ?')
+      .get(fileId) as { ignore_patterns: string } | undefined
+    const raw = row?.ignore_patterns ?? ''
+    return raw.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#'))
+  }
+
   async listCommits(deploymentId: string): Promise<CommitLogEntry[]> {
     const deployment = this.getDeployment(deploymentId)
     const internalRepoPath = join(FILES_DIR, deployment.file_id)
@@ -50,6 +59,8 @@ export class CommitService {
 
     if (fileType !== 'bundle') return []
 
+    const ignorePatterns = this.getIgnorePatterns(deployment.file_id)
+
     return this.gitService.withLock(internalRepoPath, async () => {
       await this.gitService.checkout(internalRepoPath, deployment.branch_name)
 
@@ -67,27 +78,54 @@ export class CommitService {
         }
       }
 
-      // Copy deployed files into internal repo, delete missing ones
-      const deletedPaths: string[] = []
+      // Copy deployed files into internal repo (read+write to avoid copying mode)
       for (const relPath of bundleFiles) {
+        if (matchesAnyPattern(relPath, ignorePatterns)) continue
         const deployedPath = join(deployBasePath, relPath)
         const internalPath = join(internalRepoPath, relPath)
         if (existsSync(deployedPath)) {
-          copyFileSync(deployedPath, internalPath)
+          writeFileSync(internalPath, readFileSync(deployedPath))
         } else {
-          // File was deleted from disk — remove from internal so git detects deletion
           if (existsSync(internalPath)) {
             rmSync(internalPath)
-            deletedPaths.push(relPath)
           }
         }
       }
 
-      // Get name-status and numstat
-      const nameStatus = await this.gitService.getDiffNameStatus(internalRepoPath)
-      const numstat = await this.gitService.getDiffNumstat(internalRepoPath)
+      // Also copy new (untracked) files from deployed dir
+      const deployedFiles = scanDirectory(deployBasePath, ignorePatterns)
+      const trackedSet = new Set(bundleFiles)
+      const newFiles: string[] = []
+      for (const relPath of deployedFiles) {
+        if (!trackedSet.has(relPath)) {
+          const deployedPath = join(deployBasePath, relPath)
+          const internalPath = join(internalRepoPath, relPath)
+          mkdirSync(dirname(internalPath), { recursive: true })
+          writeFileSync(internalPath, readFileSync(deployedPath))
+          newFiles.push(relPath)
+        }
+      }
 
-      // Restore originals (including deleted files)
+      let nameStatus: Array<{ status: string; path: string }>
+      let numstat: Array<{ additions: number; deletions: number; path: string }>
+
+      if (newFiles.length > 0) {
+        // Stage new files so they appear in the diff
+        await this.gitService.addAll(internalRepoPath)
+        nameStatus = await this.gitService.getDiffNameStatus(internalRepoPath, true)
+        numstat = await this.gitService.getDiffNumstat(internalRepoPath, true)
+        await this.gitService.resetAll(internalRepoPath)
+      } else {
+        // Only tracked file changes
+        nameStatus = await this.gitService.getDiffNameStatus(internalRepoPath)
+        numstat = await this.gitService.getDiffNumstat(internalRepoPath)
+      }
+
+      // Restore: remove new files, restore originals
+      for (const relPath of newFiles) {
+        const internalPath = join(internalRepoPath, relPath)
+        if (existsSync(internalPath)) rmSync(internalPath)
+      }
       for (const [relPath, content] of originals) {
         const internalPath = join(internalRepoPath, relPath)
         mkdirSync(dirname(internalPath), { recursive: true })
@@ -132,16 +170,47 @@ export class CommitService {
           throw new Error('Deployed directory does not exist')
         }
 
-        const filesToProcess = selectedFiles || await this.gitService.listFiles(internalRepoPath)
+        const ignorePatterns = this.getIgnorePatterns(deployment.file_id)
+
+        // Process tracked files (read+write to avoid copying file mode)
+        const trackedFiles = await this.gitService.listFiles(internalRepoPath)
+        const filesToProcess = selectedFiles || trackedFiles
         for (const relPath of filesToProcess) {
+          if (matchesAnyPattern(relPath, ignorePatterns)) continue
           const deployedPath = join(deployBasePath, relPath)
           const internalPath = join(internalRepoPath, relPath)
           if (existsSync(deployedPath)) {
             mkdirSync(dirname(internalPath), { recursive: true })
-            copyFileSync(deployedPath, internalPath)
+            writeFileSync(internalPath, readFileSync(deployedPath))
           } else if (existsSync(internalPath)) {
-            // File deleted from disk — remove from internal repo so git records the deletion
             rmSync(internalPath)
+          }
+        }
+
+        // Also copy new (untracked) files from deployed dir
+        if (!selectedFiles) {
+          const deployedFiles = scanDirectory(deployBasePath, ignorePatterns)
+          const trackedSet = new Set(trackedFiles)
+          for (const relPath of deployedFiles) {
+            if (!trackedSet.has(relPath)) {
+              const deployedPath = join(deployBasePath, relPath)
+              const internalPath = join(internalRepoPath, relPath)
+              mkdirSync(dirname(internalPath), { recursive: true })
+              writeFileSync(internalPath, readFileSync(deployedPath))
+            }
+          }
+        } else {
+          // For selectedFiles, also check if any are new (not yet tracked)
+          const trackedSet = new Set(trackedFiles)
+          for (const relPath of selectedFiles) {
+            if (!trackedSet.has(relPath)) {
+              const deployedPath = join(deployBasePath, relPath)
+              const internalPath = join(internalRepoPath, relPath)
+              if (existsSync(deployedPath)) {
+                mkdirSync(dirname(internalPath), { recursive: true })
+                writeFileSync(internalPath, readFileSync(deployedPath))
+              }
+            }
           }
         }
 
@@ -277,6 +346,7 @@ export class CommitService {
         const deployBasePath = join(deployment.repo_path, deployment.file_relative_path)
         if (!existsSync(deployBasePath)) return ''
 
+        const ignorePatterns = this.getIgnorePatterns(deployment.file_id)
         const bundleFiles = await this.gitService.listFiles(internalRepoPath)
 
         // Save originals
@@ -288,21 +358,48 @@ export class CommitService {
           }
         }
 
-        // Copy deployed files into internal repo, delete missing ones
+        // Copy deployed files into internal repo (read+write to avoid copying mode)
         for (const relPath of bundleFiles) {
+          if (matchesAnyPattern(relPath, ignorePatterns)) continue
           const deployedPath = join(deployBasePath, relPath)
           const internalPath = join(internalRepoPath, relPath)
           if (existsSync(deployedPath)) {
-            copyFileSync(deployedPath, internalPath)
+            writeFileSync(internalPath, readFileSync(deployedPath))
           } else if (existsSync(internalPath)) {
             rmSync(internalPath)
           }
         }
 
-        // Get diff without content filter
-        const diff = await this.gitService.getDiffWorkingTree(internalRepoPath, false)
+        // Also copy new (untracked) files from deployed dir
+        const deployedFiles = scanDirectory(deployBasePath, ignorePatterns)
+        const trackedSet = new Set(bundleFiles)
+        const newFiles: string[] = []
+        for (const relPath of deployedFiles) {
+          if (!trackedSet.has(relPath)) {
+            const deployedPath = join(deployBasePath, relPath)
+            const internalPath = join(internalRepoPath, relPath)
+            mkdirSync(dirname(internalPath), { recursive: true })
+            writeFileSync(internalPath, readFileSync(deployedPath))
+            newFiles.push(relPath)
+          }
+        }
 
-        // Restore originals (including deleted files)
+        let diff: string
+        if (newFiles.length > 0) {
+          // Stage everything so diff shows new files too
+          await this.gitService.addAll(internalRepoPath)
+          diff = await this.gitService.getDiffWorkingTree(internalRepoPath, false, true)
+          await this.gitService.resetAll(internalRepoPath)
+        } else {
+          // Only tracked file changes — use standard working tree diff
+          diff = await this.gitService.getDiffWorkingTree(internalRepoPath, false)
+        }
+
+        // Restore: remove new files, restore originals
+        for (const relPath of newFiles) {
+          const internalPath = join(internalRepoPath, relPath)
+          if (existsSync(internalPath)) rmSync(internalPath)
+        }
         for (const [relPath, content] of originals) {
           const internalPath = join(internalRepoPath, relPath)
           mkdirSync(dirname(internalPath), { recursive: true })
@@ -318,10 +415,11 @@ export class CommitService {
         const contentPath = join(internalRepoPath, 'content')
         const originalContent = readFileSync(contentPath)
 
+        // Use read+write to avoid copying file mode (would show as mode-only diff)
         const currentContent = readFileSync(deployedFullPath)
         writeFileSync(contentPath, currentContent)
 
-        const diff = await this.gitService.getDiffWorkingTree(internalRepoPath)
+        const diff = await this.gitService.getDiffWorkingTree(internalRepoPath, false)
 
         // Restore original content
         writeFileSync(contentPath, originalContent)
@@ -372,10 +470,12 @@ export class CommitService {
     if (fileType === 'bundle') {
       const internalRepoPath = join(FILES_DIR, deployment.file_id)
       const deployBasePath = join(deployment.repo_path, deployment.file_relative_path)
+      const ignorePatterns = this.getIgnorePatterns(deployment.file_id)
       const bundleFiles = await this.gitService.listFiles(internalRepoPath)
       const result: Array<{ path: string; content: string }> = []
 
       for (const relPath of bundleFiles) {
+        if (matchesAnyPattern(relPath, ignorePatterns)) continue
         const deployedPath = join(deployBasePath, relPath)
         try {
           if (existsSync(deployedPath)) {
@@ -385,6 +485,22 @@ export class CommitService {
           }
         } catch {
           result.push({ path: relPath, content: '[Could not read file]' })
+        }
+      }
+
+      // Also include new (untracked) files from deployed dir
+      if (existsSync(deployBasePath)) {
+        const deployedFiles = scanDirectory(deployBasePath, ignorePatterns)
+        const trackedSet = new Set(bundleFiles)
+        for (const relPath of deployedFiles) {
+          if (!trackedSet.has(relPath)) {
+            const deployedPath = join(deployBasePath, relPath)
+            try {
+              result.push({ path: relPath, content: readFileSync(deployedPath, 'utf-8') })
+            } catch {
+              result.push({ path: relPath, content: '[Could not read file]' })
+            }
+          }
         }
       }
 
