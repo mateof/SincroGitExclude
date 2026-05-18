@@ -3,25 +3,41 @@ import { useUIStore } from '@/stores/ui-store'
 import { useFileStore } from '@/stores/file-store'
 import { useWatcherStore } from '@/stores/watcher-store'
 import { useDeploymentStore } from '@/stores/deployment-store'
+import { useRepoStore } from '@/stores/repo-store'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { FileDetailPage } from '@/pages/FileDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { RepoDetailPage } from '@/pages/RepoDetailPage'
 
 export function MainLayout() {
-  const { currentView, selectedFileId, deselectFile } = useUIStore()
+  const { currentView, selectedFileId, selectedRepoId, deselectFile, deselectRepo } =
+    useUIStore()
   const { files } = useFileStore()
+  const { repos, loadRepos } = useRepoStore()
   const { markChanged, markDeleted, clearChanged, refreshChangedFileIds } = useWatcherStore()
+
+  // Load repos once at app start so DeploymentCard's reverse-link has the data
+  useEffect(() => {
+    loadRepos()
+  }, [loadRepos])
 
   // Auto-deselect if selected file no longer exists (e.g. after deletion)
   const fileExists = selectedFileId ? files.some((f) => f.id === selectedFileId) : false
+  const repoExists = selectedRepoId ? repos.some((r) => r.id === selectedRepoId) : false
 
   useEffect(() => {
     if (currentView === 'file-detail' && selectedFileId && !fileExists) {
       deselectFile()
     }
   }, [fileExists, currentView, selectedFileId])
+
+  useEffect(() => {
+    if (currentView === 'repo-detail' && selectedRepoId && !repoExists && repos.length > 0) {
+      deselectRepo()
+    }
+  }, [repoExists, currentView, selectedRepoId, repos.length])
 
   // Sync snapshot enabled state to main process on mount
   useEffect(() => {
@@ -61,6 +77,12 @@ export function MainLayout() {
       case 'file-detail':
         return selectedFileId && fileExists ? (
           <FileDetailPage fileId={selectedFileId} />
+        ) : (
+          <DashboardPage />
+        )
+      case 'repo-detail':
+        return selectedRepoId ? (
+          <RepoDetailPage repoId={selectedRepoId} />
         ) : (
           <DashboardPage />
         )

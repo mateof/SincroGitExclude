@@ -152,6 +152,15 @@ export class DeploymentService {
       }
     })
 
+    // Upsert into repos table (so this repo appears in the Repos view)
+    const normalizedRepoPath = repoPath.replace(/\\/g, '/').replace(/\/+$/, '')
+    getDb()
+      .prepare(
+        `INSERT INTO repos (id, path) VALUES (?, ?)
+         ON CONFLICT(path) DO UPDATE SET updated_at = datetime('now')`
+      )
+      .run(uuidv4(), normalizedRepoPath)
+
     // Insert into DB
     getDb()
       .prepare(

@@ -14,6 +14,7 @@ import { WatcherService } from './services/watcher-service'
 import { ExportService } from './services/export-service'
 import { ImportService } from './services/import-service'
 import { SnapshotService } from './services/snapshot-service'
+import { RepoService } from './services/repo-service'
 import { registerAllHandlers } from './ipc/register-all'
 import log from 'electron-log'
 
@@ -85,6 +86,7 @@ app.whenReady().then(async () => {
   snapshotService = new SnapshotService(gitService)
   snapshotService.setDeploymentService(deploymentService)
   watcherService.onFileChange((id, path) => snapshotService.onFileChanged(id, path))
+  const repoService = new RepoService(gitService, gitExcludeService)
 
   // 3b. Apply core.fileMode=false to existing internal repos to avoid
   // false-positive "changed" detection due to file mode differences
@@ -113,7 +115,8 @@ app.whenReady().then(async () => {
     gitExcludeService,
     exportService,
     importService,
-    snapshotService
+    snapshotService,
+    repoService
   })
 
   // 5. Create window

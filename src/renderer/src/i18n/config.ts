@@ -10,6 +10,8 @@ import enCommits from './en/commits.json'
 import esCommits from './es/commits.json'
 import enSettings from './en/settings.json'
 import esSettings from './es/settings.json'
+import enRepos from './en/repos.json'
+import esRepos from './es/repos.json'
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -18,14 +20,16 @@ i18n.use(initReactI18next).init({
       files: enFiles,
       deployments: enDeployments,
       commits: enCommits,
-      settings: enSettings
+      settings: enSettings,
+      repos: enRepos
     },
     es: {
       common: esCommon,
       files: esFiles,
       deployments: esDeployments,
       commits: esCommits,
-      settings: esSettings
+      settings: esSettings,
+      repos: esRepos
     }
   },
   defaultNS: 'common',

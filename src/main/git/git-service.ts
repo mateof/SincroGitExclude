@@ -93,6 +93,27 @@ export class GitService {
     await git.deleteLocalBranch(branchName, true)
   }
 
+  async getRemoteUrl(repoPath: string): Promise<string | null> {
+    try {
+      const git = this.getGit(repoPath)
+      const remotes = await git.getRemotes(true)
+      const origin = remotes.find((r) => r.name === 'origin') ?? remotes[0]
+      return origin?.refs?.fetch ?? null
+    } catch {
+      return null
+    }
+  }
+
+  async hasUncommittedChangesExternal(repoPath: string): Promise<boolean> {
+    try {
+      const git = this.getGit(repoPath)
+      const status = await git.status()
+      return !status.isClean()
+    } catch {
+      return false
+    }
+  }
+
   async addAndCommit(
     repoPath: string,
     filePath: string,

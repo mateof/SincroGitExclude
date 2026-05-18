@@ -207,4 +207,12 @@ export function registerExcludeHandlers(
       return { success: false, error: (error as Error).message }
     }
   })
+
+  ipcMain.handle('exclude:is-git-repo', async (_, path: string) => {
+    try {
+      return { success: true, data: excludeService.isGitRepo(path) }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
 }

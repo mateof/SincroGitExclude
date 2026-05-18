@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useUIStore } from '@/stores/ui-store'
 import type { ManagedFile } from '@/types'
 import { FileText, FolderArchive } from 'lucide-react'
@@ -39,22 +40,33 @@ interface FileListProps {
 export function FileList({ files, changedFileIds }: FileListProps) {
   const { selectedFileId, selectFile } = useUIStore()
 
+  // Callback ref on the selected button. Fires on mount/unmount of that node.
+  // Handles navigating from the Repos tab → Managed file → switch to Files tab:
+  // when the file list (re)mounts with a selected file, scroll to it.
+  const scrollSelectedIntoView = useCallback((node: HTMLButtonElement | null) => {
+    if (node) {
+      node.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [])
+
   return (
     <div className="py-1">
       {files.map((file) => {
         const hasChanges = changedFileIds?.has(file.id)
+        const isSelected = selectedFileId === file.id
         return (
         <button
           key={file.id}
+          ref={isSelected ? scrollSelectedIntoView : null}
           onClick={() => selectFile(file.id)}
           className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors ${
-            selectedFileId === file.id
+            isSelected
               ? 'bg-primary/10 text-primary border-r-2 border-primary'
               : 'hover:bg-secondary text-foreground'
           }`}
         >
           <div className="relative shrink-0">
-            <FileIcon file={file} isSelected={selectedFileId === file.id} />
+            <FileIcon file={file} isSelected={isSelected} />
             {hasChanges && (
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-warning" />
             )}

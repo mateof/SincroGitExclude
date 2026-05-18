@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useDeploymentStore } from '@/stores/deployment-store'
 import { useFileStore } from '@/stores/file-store'
 import { useWatcherStore } from '@/stores/watcher-store'
+import { useRepoStore } from '@/stores/repo-store'
+import { useUIStore } from '@/stores/ui-store'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import type { Deployment, IpcResult } from '@/types'
 import {
@@ -81,10 +83,13 @@ export function DeploymentCard({
 }: DeploymentCardProps) {
   const { t, i18n } = useTranslation('deployments')
   const { t: tc } = useTranslation('common')
+  const { t: tr } = useTranslation('repos')
   const { deactivateDeployment, reactivateDeployment, deleteDeployment, checkExclude, checkGitIgnore, checkChanges, updateDescription, setDeploymentTags } =
     useDeploymentStore()
   const { tags: allTags, createTag } = useFileStore()
   const { changedDeployments, deletedDeployments, clearChanged } = useWatcherStore()
+  const { repos } = useRepoStore()
+  const { selectRepo } = useUIStore()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
@@ -205,7 +210,21 @@ export function DeploymentCard({
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <FolderGit2 className="w-4 h-4 text-muted-foreground shrink-0" />
+          {(() => {
+            const normalized = deployment.repoPath.replace(/\\/g, '/').replace(/\/+$/, '')
+            const repo = repos.find((r) => r.path === normalized)
+            return repo ? (
+              <button
+                onClick={() => selectRepo(repo.id)}
+                className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+                data-tooltip={tr('viewRepo')}
+              >
+                <FolderGit2 className="w-4 h-4" />
+              </button>
+            ) : (
+              <FolderGit2 className="w-4 h-4 text-muted-foreground shrink-0" />
+            )
+          })()}
           <div className="min-w-0">
             <div
               className="text-sm font-medium overflow-visible"

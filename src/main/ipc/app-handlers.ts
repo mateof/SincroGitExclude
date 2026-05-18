@@ -248,6 +248,40 @@ export function registerAppHandlers(): void {
     return result.filePaths
   })
 
+  // Select files and/or folders inside a repo, return patterns relative to repoPath.
+  // Directories get trailing '/'. Anything outside the repo is reported separately.
+  ipcMain.handle('dialog:select-exclude-targets', async (_, repoPath: string) => {
+    const win = BrowserWindow.getFocusedWindow()
+    if (!win) return null
+
+    const result = await dialog.showOpenDialog(win, {
+      defaultPath: repoPath,
+      properties: ['openFile', 'openDirectory', 'multiSelections']
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    const patterns: string[] = []
+    const outsideRepo: string[] = []
+    for (const absPath of result.filePaths) {
+      const rel = relative(repoPath, absPath).replace(/\\/g, '/')
+      if (rel.startsWith('..') || rel === '' || rel === '.') {
+        outsideRepo.push(absPath)
+        continue
+      }
+      let pattern = rel
+      try {
+        if (statSync(absPath).isDirectory()) {
+          pattern = rel + '/'
+        }
+      } catch {
+        // ignore stat errors, keep raw rel
+      }
+      patterns.push(pattern)
+    }
+
+    return { patterns, outsideRepo }
+  })
+
   // Select a folder and return its contents
   ipcMain.handle('dialog:select-folder-contents', async () => {
     const win = BrowserWindow.getFocusedWindow()

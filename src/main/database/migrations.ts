@@ -134,6 +134,34 @@ const migrations: Migration[] = [
     up: `
       ALTER TABLE files ADD COLUMN ignore_patterns TEXT NOT NULL DEFAULT '';
     `
+  },
+  {
+    version: 10,
+    description: 'Add repos and repo_tags tables; backfill repos from existing deployments',
+    up: `
+      CREATE TABLE IF NOT EXISTS repos (
+        id TEXT PRIMARY KEY,
+        path TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_repos_path ON repos(path);
+
+      CREATE TABLE IF NOT EXISTS repo_tags (
+        repo_id TEXT NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+        tag_id  TEXT NOT NULL REFERENCES tags(id)  ON DELETE CASCADE,
+        PRIMARY KEY (repo_id, tag_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_repo_tags_repo_id ON repo_tags(repo_id);
+      CREATE INDEX IF NOT EXISTS idx_repo_tags_tag_id  ON repo_tags(tag_id);
+
+      INSERT OR IGNORE INTO repos (id, path)
+      SELECT lower(hex(randomblob(16))), repo_path
+      FROM (SELECT DISTINCT repo_path FROM deployments);
+    `
   }
 ]
 

@@ -13,7 +13,9 @@ import { registerExcludeHandlers } from './exclude-handlers'
 import { registerExportImportHandlers } from './export-import-handlers'
 import { registerAppHandlers } from './app-handlers'
 import { registerSnapshotHandlers } from './snapshot-handlers'
+import { registerRepoHandlers } from './repo-handlers'
 import type { SnapshotService } from '../services/snapshot-service'
+import type { RepoService } from '../services/repo-service'
 
 interface Services {
   fileService: FileService
@@ -25,6 +27,7 @@ interface Services {
   exportService: ExportService
   importService: ImportService
   snapshotService: SnapshotService
+  repoService: RepoService
 }
 
 export function registerAllHandlers(services: Services): void {
@@ -35,4 +38,5 @@ export function registerAllHandlers(services: Services): void {
   registerExportImportHandlers(services.exportService, services.importService)
   registerAppHandlers()
   registerSnapshotHandlers(services.snapshotService)
+  registerRepoHandlers(services.repoService, services.gitExcludeService)
 }

@@ -4,6 +4,14 @@ import { homedir } from 'os'
 import { execFileSync } from 'child_process'
 import log from 'electron-log'
 
+export interface ExcludeEntry {
+  pattern: string
+  managedByApp: boolean
+  deploymentId: string | null
+  lineNumber: number
+  rawLine: string
+}
+
 function findGitBinary(): string {
   if (process.platform === 'darwin') {
     const candidates = [
@@ -70,6 +78,96 @@ export class GitExcludeService {
     content += `${marker}\n${normalized}\n`
     writeFileSync(excludePath, content, 'utf-8')
     log.info(`Added exclusion for ${normalized} in ${repoPath}`)
+  }
+
+  listEntries(repoPath: string): ExcludeEntry[] {
+    const excludePath = this.getExcludePath(repoPath)
+    if (!existsSync(excludePath)) return []
+
+    const content = readFileSync(excludePath, 'utf-8')
+    const lines = content.split('\n')
+    const entries: ExcludeEntry[] = []
+    let pendingMarker: { managedByApp: true; deploymentId: string | null } | null = null
+
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i]
+      const trimmed = raw.trim()
+      if (!trimmed) {
+        pendingMarker = null
+        continue
+      }
+      if (trimmed.startsWith('#')) {
+        // Match "# SincroGitExclude [<id>]" or "# SincroGitExclude managed"
+        const idMatch = trimmed.match(/^# SincroGitExclude \[(.+?)\]\s*$/)
+        if (idMatch) {
+          pendingMarker = { managedByApp: true, deploymentId: idMatch[1] }
+        } else if (trimmed === '# SincroGitExclude managed') {
+          pendingMarker = { managedByApp: true, deploymentId: null }
+        } else {
+          pendingMarker = null
+        }
+        continue
+      }
+      entries.push({
+        pattern: trimmed,
+        managedByApp: pendingMarker?.managedByApp ?? false,
+        deploymentId: pendingMarker?.deploymentId ?? null,
+        lineNumber: i,
+        rawLine: raw
+      })
+      pendingMarker = null
+    }
+
+    return entries
+  }
+
+  async addManualExclusion(repoPath: string, pattern: string): Promise<void> {
+    const trimmed = pattern.trim()
+    if (!trimmed) throw new Error('Pattern cannot be empty')
+    if (trimmed.includes('\n')) throw new Error('Pattern cannot contain newlines')
+
+    const excludePath = this.getExcludePath(repoPath)
+    mkdirSync(dirname(excludePath), { recursive: true })
+
+    let content = ''
+    if (existsSync(excludePath)) {
+      content = readFileSync(excludePath, 'utf-8')
+    }
+    if (content.length > 0 && !content.endsWith('\n')) {
+      content += '\n'
+    }
+    content += `# SincroGitExclude [manual]\n${trimmed}\n`
+    writeFileSync(excludePath, content, 'utf-8')
+    log.info(`Added manual exclusion ${trimmed} in ${repoPath}`)
+  }
+
+  async removeExclusionByLine(
+    repoPath: string,
+    lineNumber: number,
+    expectedPattern: string
+  ): Promise<void> {
+    const excludePath = this.getExcludePath(repoPath)
+    if (!existsSync(excludePath)) return
+
+    const content = readFileSync(excludePath, 'utf-8')
+    const lines = content.split('\n')
+
+    if (lineNumber < 0 || lineNumber >= lines.length) {
+      throw new Error('Exclude file changed externally — line out of range')
+    }
+    if (lines[lineNumber].trim() !== expectedPattern.trim()) {
+      throw new Error('Exclude file changed externally — pattern mismatch')
+    }
+
+    const toRemove = new Set<number>([lineNumber])
+    // Remove preceding SincroGitExclude marker if present
+    if (lineNumber > 0 && lines[lineNumber - 1].trim().startsWith('# SincroGitExclude')) {
+      toRemove.add(lineNumber - 1)
+    }
+
+    const filtered = lines.filter((_, i) => !toRemove.has(i))
+    writeFileSync(excludePath, filtered.join('\n'), 'utf-8')
+    log.info(`Removed exclusion at line ${lineNumber} (${expectedPattern}) from ${repoPath}`)
   }
 
   async removeExclusion(
