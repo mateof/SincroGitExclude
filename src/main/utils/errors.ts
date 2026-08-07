@@ -21,6 +21,23 @@ export function describeError(error: unknown): string {
     )
   }
 
+  // Same root cause seen from git instead of SQLite: on a file-provider mount
+  // (Synology Drive, iCloud, …) git's mmap fails and refs/objects become
+  // unreadable, so HEAD resolves to nothing and branches "do not exist".
+  if (
+    /mmap failed|Stale NFS file handle|unable to read tree|no es posible leer el árbol|is corrupt|empty string is not a valid pathspec/i.test(
+      message
+    )
+  ) {
+    return (
+      `${message} — the internal repository could not be read. This happens when ` +
+      'the application data folder is on a cloud-synced or network filesystem ' +
+      '(Synology Drive, Dropbox, OneDrive, iCloud, Google Drive), where git ' +
+      'cannot memory-map its object files. Move the data location to a local ' +
+      'folder from Settings → Application data.'
+    )
+  }
+
   if (/database is locked|SQLITE_BUSY/i.test(message)) {
     return (
       `${message} — the database is locked by another process. Close any other ` +

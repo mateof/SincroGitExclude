@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { IpcResult } from '@/types'
 import {
@@ -9,7 +9,8 @@ import {
   Copy,
   Search,
   ScrollText,
-  Check
+  Check,
+  ArrowDown
 } from 'lucide-react'
 
 interface LogEntry {
@@ -45,22 +46,56 @@ const LEVEL_RANK: Record<string, number> = {
   silly: 3
 }
 
+const LIMITS = [100, 500, 1000, 5000]
+
+/** Quick ranges, counted back from now */
+const QUICK_RANGES = [
+  { minutes: 15, key: 'range15m' },
+  { minutes: 60, key: 'range1h' },
+  { minutes: 24 * 60, key: 'range24h' },
+  { minutes: 7 * 24 * 60, key: 'range7d' }
+]
+
+/** `2026-08-07 10:54:36.326` (electron-log, local time) → Date */
+function parseTimestamp(timestamp: string): number {
+  return new Date(timestamp.replace(' ', 'T')).getTime()
+}
+
+/** Date → value accepted by <input type="datetime-local">, in local time */
+function toInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  )
+}
+
+function formatEntry(entry: LogEntry): string {
+  return `[${entry.timestamp}] [${entry.level}] ${entry.message}`
+}
+
 export function LogViewer({ open, onOpenChange }: LogViewerProps) {
   const { t } = useTranslation('settings')
   const { t: tc } = useTranslation('common')
 
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [logPath, setLogPath] = useState('')
-  const [verbose, setVerbose] = useState(() => localStorage.getItem('logVerbose') === 'true')
+  const [verbose, setVerbose] = useState(false)
   const [level, setLevel] = useState<LevelFilter>('all')
+  const [limit, setLimit] = useState(500)
   const [search, setSearch] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const [loading, setLoading] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [copiedAll, setCopiedAll] = useState(false)
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+
+  const listRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     const [result, info] = await Promise.all([
-      window.api.invoke<IpcResult<{ path: string; entries: LogEntry[] }>>('logs:read', 1000),
+      window.api.invoke<IpcResult<{ path: string; entries: LogEntry[] }>>('logs:read', limit),
       window.api.invoke<IpcResult<{ verbose: boolean }>>('logs:info')
     ])
     if (result.success && result.data) {
@@ -70,7 +105,7 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
     // The main process is the source of truth for the active level
     if (info.success && info.data) setVerbose(info.data.verbose)
     setLoading(false)
-  }, [])
+  }, [limit])
 
   useEffect(() => {
     if (open) load()
@@ -87,20 +122,54 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
     await load()
   }
 
+  const applyQuickRange = (minutes: number) => {
+    setFrom(toInputValue(new Date(Date.now() - minutes * 60_000)))
+    setTo('')
+  }
+
+  const clearRange = () => {
+    setFrom('')
+    setTo('')
+  }
+
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
+    const fromTime = from ? new Date(from).getTime() : null
+    const toTime = to ? new Date(to).getTime() : null
+
     return entries.filter((e) => {
       if (level !== 'all' && (LEVEL_RANK[e.level] ?? 3) > LEVEL_RANK[level]) return false
       if (needle && !e.message.toLowerCase().includes(needle)) return false
+      if (fromTime !== null || toTime !== null) {
+        const time = parseTimestamp(e.timestamp)
+        if (Number.isNaN(time)) return false
+        if (fromTime !== null && time < fromTime) return false
+        if (toTime !== null && time > toTime) return false
+      }
       return true
     })
-  }, [entries, level, search])
+  }, [entries, level, search, from, to])
 
-  const handleCopy = async () => {
-    const text = filtered.map((e) => `[${e.timestamp}] [${e.level}] ${e.message}`).join('\n')
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  // Jump to the newest entries: what you almost always want after an error
+  const scrollToBottom = useCallback(() => {
+    const el = listRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [])
+
+  useEffect(() => {
+    if (!loading) scrollToBottom()
+  }, [loading, filtered.length, scrollToBottom])
+
+  const handleCopyAll = async () => {
+    await navigator.clipboard.writeText(filtered.map(formatEntry).join('\n'))
+    setCopiedAll(true)
+    setTimeout(() => setCopiedAll(false), 2000)
+  }
+
+  const handleCopyEntry = async (entry: LogEntry, index: number) => {
+    await navigator.clipboard.writeText(formatEntry(entry))
+    setCopiedIndex(index)
+    setTimeout(() => setCopiedIndex((current) => (current === index ? null : current)), 2000)
   }
 
   if (!open) return null
@@ -108,9 +177,9 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={() => onOpenChange(false)} />
-      <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col">
+      <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <ScrollText className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold">{t('logs.title')}</h2>
@@ -124,8 +193,8 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
           </button>
         </div>
 
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-border">
+        {/* Toolbar: search, level, how many entries, actions */}
+        <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-border">
           <div className="relative flex-1 min-w-[160px]">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
@@ -149,6 +218,19 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
             ))}
           </select>
 
+          <select
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+            className="px-2 py-1.5 text-xs bg-secondary rounded-lg border border-border outline-none focus:ring-1 focus:ring-primary"
+            title={t('logs.limitHint')}
+          >
+            {LIMITS.map((n) => (
+              <option key={n} value={n}>
+                {t('logs.lastEntries', { n })}
+              </option>
+            ))}
+          </select>
+
           <button
             onClick={load}
             disabled={loading}
@@ -159,15 +241,23 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
           </button>
 
           <button
-            onClick={handleCopy}
+            onClick={handleCopyAll}
             className="p-1.5 rounded-lg bg-secondary hover:bg-muted transition-colors"
             title={t('logs.copy')}
           >
-            {copied ? (
+            {copiedAll ? (
               <Check className="w-3.5 h-3.5 text-success" />
             ) : (
               <Copy className="w-3.5 h-3.5" />
             )}
+          </button>
+
+          <button
+            onClick={scrollToBottom}
+            className="p-1.5 rounded-lg bg-secondary hover:bg-muted transition-colors"
+            title={t('logs.jumpToEnd')}
+          >
+            <ArrowDown className="w-3.5 h-3.5" />
           </button>
 
           <button
@@ -197,15 +287,63 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
           </label>
         </div>
 
-        {/* Entries */}
-        <div className="flex-1 overflow-y-auto px-5 py-3 font-mono text-[11px] leading-relaxed">
+        {/* Date range */}
+        <div className="flex flex-wrap items-center gap-2 px-5 py-2 border-b border-border">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {t('logs.range')}
+          </span>
+
+          {QUICK_RANGES.map((range) => (
+            <button
+              key={range.key}
+              onClick={() => applyQuickRange(range.minutes)}
+              className="px-2 py-1 text-[11px] rounded-md bg-secondary hover:bg-muted transition-colors"
+            >
+              {t(`logs.${range.key}`)}
+            </button>
+          ))}
+
+          <input
+            type="datetime-local"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="px-2 py-1 text-[11px] bg-secondary rounded-lg border border-border outline-none focus:ring-1 focus:ring-primary"
+            title={t('logs.from')}
+          />
+          <span className="text-[11px] text-muted-foreground">→</span>
+          <input
+            type="datetime-local"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="px-2 py-1 text-[11px] bg-secondary rounded-lg border border-border outline-none focus:ring-1 focus:ring-primary"
+            title={t('logs.to')}
+          />
+
+          {(from || to) && (
+            <button
+              onClick={clearRange}
+              className="px-2 py-1 text-[11px] rounded-md hover:bg-secondary text-muted-foreground transition-colors"
+            >
+              {t('logs.clearRange')}
+            </button>
+          )}
+        </div>
+
+        {/* Entries — selectable so a fragment can be copied by hand */}
+        <div
+          ref={listRef}
+          className="flex-1 overflow-y-auto px-5 py-3 font-mono text-[11px] leading-relaxed select-text"
+        >
           {filtered.length === 0 ? (
             <div className="text-center text-muted-foreground py-10 text-xs font-sans">
               {t('logs.empty')}
             </div>
           ) : (
             filtered.map((entry, i) => (
-              <div key={i} className="flex gap-2 py-0.5 border-b border-border/30">
+              <div
+                key={i}
+                className="group flex gap-2 py-0.5 border-b border-border/30 hover:bg-secondary/40"
+              >
                 <span className="text-muted-foreground/60 shrink-0">{entry.timestamp}</span>
                 <span
                   className={`shrink-0 w-12 uppercase ${
@@ -215,20 +353,31 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
                   {entry.level}
                 </span>
                 <span
-                  className={`whitespace-pre-wrap break-all ${
+                  className={`flex-1 whitespace-pre-wrap break-all ${
                     LEVEL_STYLES[entry.level] ?? ''
                   }`}
                 >
                   {entry.message}
                 </span>
+                <button
+                  onClick={() => handleCopyEntry(entry, i)}
+                  className="shrink-0 self-start p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
+                  title={t('logs.copyEntry')}
+                >
+                  {copiedIndex === i ? (
+                    <Check className="w-3 h-3 text-success" />
+                  ) : (
+                    <Copy className="w-3 h-3 text-muted-foreground" />
+                  )}
+                </button>
               </div>
             ))
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-2.5 border-t border-border flex items-center justify-between gap-3">
-          <span className="text-[10px] text-muted-foreground truncate" title={logPath}>
+        <div className="px-5 py-2 border-t border-border flex items-center justify-between gap-3">
+          <span className="text-[10px] text-muted-foreground truncate select-text" title={logPath}>
             {logPath}
           </span>
           <span className="text-[10px] text-muted-foreground shrink-0">

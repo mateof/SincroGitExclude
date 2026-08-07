@@ -77,9 +77,23 @@ export class GitService {
     const git = this.getGit(repoPath)
     if (startPoint) {
       await git.checkoutBranch(branchName, startPoint)
-    } else {
-      const current = (await git.branchLocal()).current
+      return
+    }
+
+    const current = (await git.branchLocal()).current
+    if (current) {
       await git.checkoutBranch(branchName, current)
+      return
+    }
+
+    // An empty `current` means detached HEAD, an unborn branch, or a repo whose
+    // refs cannot be read. Passing it straight to checkout produced
+    // "fatal: empty string is not a valid pathspec", which said nothing about
+    // the real problem — branch off HEAD instead, then off nothing at all.
+    try {
+      await git.checkoutBranch(branchName, 'HEAD')
+    } catch {
+      await git.checkout(['-b', branchName])
     }
   }
 
