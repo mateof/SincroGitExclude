@@ -1,3 +1,4 @@
+import { describeError } from '../utils/errors'
 import { ipcMain } from 'electron'
 import { join } from 'path'
 import { GitExcludeService } from '../git/git-exclude'
@@ -55,7 +56,7 @@ export function registerExcludeHandlers(
       )
       return { success: true, data: isExcluded }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -82,7 +83,7 @@ export function registerExcludeHandlers(
       }
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -113,7 +114,7 @@ export function registerExcludeHandlers(
       )
       return { success: true, data: isGlobal }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -136,7 +137,7 @@ export function registerExcludeHandlers(
       const isIgnored = excludeService.isInGitIgnore(deployment.repo_path, pathToCheck)
       return { success: true, data: isIgnored }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -157,7 +158,7 @@ export function registerExcludeHandlers(
       excludeService.addToGitIgnore(deployment.repo_path, pathToAdd, deploymentId)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -177,7 +178,7 @@ export function registerExcludeHandlers(
       excludeService.removeFromGitIgnore(deployment.repo_path, pathToRemove)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -204,7 +205,7 @@ export function registerExcludeHandlers(
       }
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -212,7 +213,7 @@ export function registerExcludeHandlers(
     try {
       return { success: true, data: excludeService.isGitRepo(path) }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 }

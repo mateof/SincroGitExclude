@@ -64,20 +64,128 @@ export class DeploymentService {
     const internalRepoPath = join(FILES_DIR, fileId)
     const fileType = this.getFileType(fileId)
     const isBundle = fileType === 'bundle'
+    const startPoint = sourceCommit || sourceBranch
 
-    // Validate repo path is a git repo
+    log.info(
+      `createDeployment: file=${fileId} type=${fileType} repo=${repoPath} ` +
+        `target=${fileRelativePath} branch=${branchName} ` +
+        `source=${startPoint ?? 'current HEAD'} autoExclude=${autoExclude}`
+    )
+
+    // Validate destination before touching anything.
+    // Each case gets its own message so the UI never has to guess the cause.
+    if (!existsSync(repoPath)) {
+      throw new Error(`Destination folder does not exist: ${repoPath}`)
+    }
     if (!this.excludeService.isGitRepo(repoPath)) {
-      throw new Error(`${repoPath} is not a git repository`)
+      throw new Error(`Not a git repository (no .git found): ${repoPath}`)
+    }
+    if (!existsSync(join(internalRepoPath, '.git'))) {
+      throw new Error(
+        `Internal repository for this managed file is missing: ${internalRepoPath}`
+      )
     }
 
-    await this.gitService.withLock(internalRepoPath, async () => {
-      // Create branch from source
-      let startPoint = sourceBranch
-      if (sourceCommit) {
-        startPoint = sourceCommit
-      }
-      await this.gitService.createBranch(internalRepoPath, branchName, startPoint)
+    // Branch to return to if the attempt fails midway
+    let previousBranch: string | null = null
 
+    try {
+      await this.gitService.withLock(internalRepoPath, async () => {
+        try {
+          previousBranch = await this.gitService.getCurrentBranch(internalRepoPath)
+        } catch {
+          // Repo with no commits yet or detached HEAD — nothing to roll back to
+        }
+
+        try {
+          await this.gitService.createBranch(internalRepoPath, branchName, startPoint)
+        } catch (error) {
+          throw new Error(
+            `Could not create internal branch ${branchName}` +
+              `${startPoint ? ` from ${startPoint}` : ''}: ${(error as Error).message}`
+          )
+        }
+
+        try {
+          await this.populateDeployment(
+            internalRepoPath,
+            repoPath,
+            fileRelativePath,
+            fileId,
+            isBundle
+          )
+        } catch (error) {
+          await this.rollbackBranch(internalRepoPath, branchName, previousBranch)
+          throw error
+        }
+      })
+
+      // Upsert into repos table (so this repo appears in the Repos view)
+      const normalizedRepoPath = repoPath.replace(/\\/g, '/').replace(/\/+$/, '')
+      getDb()
+        .prepare(
+          `INSERT INTO repos (id, path) VALUES (?, ?)
+           ON CONFLICT(path) DO UPDATE SET updated_at = datetime('now')`
+        )
+        .run(uuidv4(), normalizedRepoPath)
+
+      // Insert into DB
+      getDb()
+        .prepare(
+          `INSERT INTO deployments (id, file_id, repo_path, file_relative_path, branch_name, is_active)
+           VALUES (?, ?, ?, ?, ?, 1)`
+        )
+        .run(id, fileId, repoPath, fileRelativePath, branchName)
+    } catch (error) {
+      // Covers the DB inserts too: if SQLite fails here the branch already
+      // exists but no deployment row does, so drop the branch as well
+      await this.gitService.withLock(internalRepoPath, () =>
+        this.rollbackBranch(internalRepoPath, branchName, previousBranch)
+      )
+      log.error(
+        `createDeployment failed: file=${fileId} repo=${repoPath} target=${fileRelativePath}`,
+        error
+      )
+      throw error
+    }
+
+    log.info(`createDeployment: created deployment ${id} on branch ${branchName}`)
+
+    return this.finishDeployment(id, fileId, repoPath, fileRelativePath, isBundle, autoExclude)
+  }
+
+  /**
+   * Best-effort removal of a deployment branch created by a failed attempt.
+   * Never throws: it runs while another error is already propagating.
+   */
+  private async rollbackBranch(
+    internalRepoPath: string,
+    branchName: string,
+    previousBranch: string | null
+  ): Promise<void> {
+    if (!previousBranch || previousBranch === branchName) return
+    try {
+      const branches = await this.gitService.listBranches(internalRepoPath)
+      if (!branches.includes(branchName)) return
+      await this.gitService.checkout(internalRepoPath, previousBranch)
+      await this.gitService.deleteBranch(internalRepoPath, branchName)
+      log.info(`Rolled back branch ${branchName} after a failed deployment`)
+    } catch (error) {
+      log.warn(`Could not roll back branch ${branchName}:`, error)
+    }
+  }
+
+  /**
+   * Copies content between the internal repo and the deployed location.
+   * Must run inside the internal repo lock, on the already-created branch.
+   */
+  private async populateDeployment(
+    internalRepoPath: string,
+    repoPath: string,
+    fileRelativePath: string,
+    fileId: string,
+    isBundle: boolean
+  ): Promise<void> {
       if (isBundle) {
         // Bundle: handle multi-file deployment
         const bundleFiles = await this.gitService.listFiles(internalRepoPath)
@@ -150,42 +258,41 @@ export class DeploymentService {
           }
         }
       }
-    })
+  }
 
-    // Upsert into repos table (so this repo appears in the Repos view)
-    const normalizedRepoPath = repoPath.replace(/\\/g, '/').replace(/\/+$/, '')
-    getDb()
-      .prepare(
-        `INSERT INTO repos (id, path) VALUES (?, ?)
-         ON CONFLICT(path) DO UPDATE SET updated_at = datetime('now')`
-      )
-      .run(uuidv4(), normalizedRepoPath)
-
-    // Insert into DB
-    getDb()
-      .prepare(
-        `INSERT INTO deployments (id, file_id, repo_path, file_relative_path, branch_name, is_active)
-         VALUES (?, ?, ?, ?, ?, 1)`
-      )
-      .run(id, fileId, repoPath, fileRelativePath, branchName)
-
+  /**
+   * Post-insert steps: exclude entry and watcher. Failures here are logged but
+   * do not undo the deployment — it already exists and works without them.
+   */
+  private async finishDeployment(
+    id: string,
+    fileId: string,
+    repoPath: string,
+    fileRelativePath: string,
+    isBundle: boolean,
+    autoExclude: boolean
+  ): Promise<DeploymentRow> {
     // Add to git exclude (if enabled)
     if (autoExclude) {
-      if (isBundle) {
-        const excludePath = this.getBundleExcludePath(fileRelativePath)
+      try {
+        const excludePath = isBundle
+          ? this.getBundleExcludePath(fileRelativePath)
+          : fileRelativePath
         await this.excludeService.addExclusion(repoPath, excludePath, id)
-      } else {
-        await this.excludeService.addExclusion(repoPath, fileRelativePath, id)
+      } catch (error) {
+        log.warn(`Deployment ${id} created but exclude entry failed:`, error)
       }
     }
 
     // Start watching
-    const watchPath = isBundle
-      ? join(repoPath, fileRelativePath)
-      : join(repoPath, fileRelativePath)
-    await this.watcherService.watchDeployment(id, watchPath)
+    const watchPath = join(repoPath, fileRelativePath)
+    try {
+      await this.watcherService.watchDeployment(id, watchPath)
+    } catch (error) {
+      log.warn(`Deployment ${id} created but watcher failed to start:`, error)
+    }
 
-    log.info(`Created deployment ${id} for ${fileType} ${fileId} at ${watchPath}`)
+    log.info(`Created deployment ${id} for file ${fileId} at ${watchPath}`)
     return this.getDeployment(id)!
   }
 

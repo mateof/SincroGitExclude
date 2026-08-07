@@ -251,7 +251,7 @@ export function PartialDeployDialog({
 
       if (file) {
         if (repoPath && deployRelativePath) {
-          await createDeployment(
+          const result = await createDeployment(
             file.id,
             repoPath,
             deployRelativePath,
@@ -259,6 +259,12 @@ export function PartialDeployDialog({
             undefined,
             autoExclude
           )
+          if (!result.deployment) {
+            // The file was extracted correctly, only the deployment failed
+            setError(result.error || tc('messages.error', { defaultValue: 'An error occurred' }))
+            setLoading(false)
+            return
+          }
         }
         selectFile(file.id)
         onCreated(file.id)

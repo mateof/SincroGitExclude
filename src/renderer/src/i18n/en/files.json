@@ -1,5 +1,6 @@
 {
   "title": "Managed Files",
+  "deploymentFailed": "The file was created, but the deployment could not be created: {{error}}",
   "createTitle": "New File",
   "editTitle": "Edit File",
   "fields": {

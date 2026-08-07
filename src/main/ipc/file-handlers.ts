@@ -1,3 +1,4 @@
+import { describeError } from '../utils/errors'
 import { ipcMain } from 'electron'
 import { FileService } from '../services/file-service'
 
@@ -6,7 +7,7 @@ export function registerFileHandlers(fileService: FileService): void {
     try {
       return { success: true, data: fileService.listFiles() }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -14,7 +15,7 @@ export function registerFileHandlers(fileService: FileService): void {
     try {
       return { success: true, data: fileService.getFile(id) }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -27,7 +28,7 @@ export function registerFileHandlers(fileService: FileService): void {
       }
       return { success: true, data: file }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -37,7 +38,7 @@ export function registerFileHandlers(fileService: FileService): void {
       try {
         return { success: true, data: fileService.updateFile(id, data) }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -47,7 +48,7 @@ export function registerFileHandlers(fileService: FileService): void {
       await fileService.deleteFile(id)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -57,7 +58,7 @@ export function registerFileHandlers(fileService: FileService): void {
     try {
       return { success: true, data: fileService.listTags() }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -65,7 +66,7 @@ export function registerFileHandlers(fileService: FileService): void {
     try {
       return { success: true, data: fileService.createTag(name, color) }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -74,7 +75,7 @@ export function registerFileHandlers(fileService: FileService): void {
       fileService.deleteTag(id)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -83,7 +84,7 @@ export function registerFileHandlers(fileService: FileService): void {
       fileService.setFileTags(fileId, tagIds)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -100,7 +101,7 @@ export function registerFileHandlers(fileService: FileService): void {
         }
         return { success: true, data: file }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -130,7 +131,7 @@ export function registerFileHandlers(fileService: FileService): void {
         }
         return { success: true, data: file }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -142,7 +143,7 @@ export function registerFileHandlers(fileService: FileService): void {
         const added = await fileService.addFilesToBundle(fileId, filePaths, basePath)
         return { success: true, data: added }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -154,7 +155,7 @@ export function registerFileHandlers(fileService: FileService): void {
         const removed = await fileService.removeFilesFromBundle(fileId, filesToRemove, deleteFromDisk)
         return { success: true, data: removed }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -166,7 +167,7 @@ export function registerFileHandlers(fileService: FileService): void {
         const removed = fileService.removeFileFromDeployment(deploymentId, filesToRemove)
         return { success: true, data: removed }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -176,7 +177,7 @@ export function registerFileHandlers(fileService: FileService): void {
       const entries = await fileService.listBundleEntries(fileId)
       return { success: true, data: entries }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -187,7 +188,7 @@ export function registerFileHandlers(fileService: FileService): void {
       const patterns = fileService.getRawIgnorePatterns(fileId)
       return { success: true, data: patterns }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -196,7 +197,7 @@ export function registerFileHandlers(fileService: FileService): void {
       fileService.setIgnorePatterns(fileId, patterns)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 }

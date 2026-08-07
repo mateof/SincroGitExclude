@@ -45,6 +45,12 @@ export function MainLayout() {
     window.api.invoke('snapshots:set-enabled', enabled)
   }, [])
 
+  // Restore verbose logging preference on mount
+  useEffect(() => {
+    const verbose = localStorage.getItem('logVerbose') === 'true'
+    if (verbose) window.api.invoke('logs:set-verbose', true)
+  }, [])
+
   // Subscribe to watcher events from main process
   useEffect(() => {
     const unsubChange = window.api.on('watcher:file-changed', async (deploymentId: unknown) => {

@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useDeploymentStore } from '@/stores/deployment-store'
 import { useFileStore } from '@/stores/file-store'
 import type { CommitInfo, Deployment, IpcResult } from '@/types'
-import { X, FolderOpen, FolderGit2, AlertCircle, FileSearch } from 'lucide-react'
+import { LogViewer } from '@/components/settings/LogViewer'
+import { X, FolderOpen, FolderGit2, AlertCircle, FileSearch, ScrollText } from 'lucide-react'
 
 interface ResolveResult {
   fullPath: string
@@ -39,6 +40,7 @@ export function DeploymentCreateDialog({
   const [folderRelativePath, setFolderRelativePath] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [logsOpen, setLogsOpen] = useState(false)
 
   // Source selectors
   const [selectedDeploymentId, setSelectedDeploymentId] = useState('')
@@ -194,14 +196,14 @@ export function DeploymentCreateDialog({
 
     setLoading(false)
 
-    if (result) {
+    if (result.deployment) {
       onOpenChange(false)
     } else {
+      // Show what actually failed. The generic "not a git repository" message
+      // used to be shown for every failure, which was misleading.
       setError(
-        t('messages.createError', {
-          defaultValue:
-            'Failed to create deployment. Make sure the path is inside a valid git repository.'
-        })
+        result.error ||
+          t('messages.createError', { defaultValue: 'Failed to create deployment.' })
       )
     }
   }
@@ -400,8 +402,16 @@ export function DeploymentCreateDialog({
           </div>
 
           {error && (
-            <div className="p-3 text-xs text-destructive bg-destructive/10 rounded-lg">
-              {error}
+            <div className="p-3 text-xs text-destructive bg-destructive/10 rounded-lg space-y-2">
+              <div className="whitespace-pre-wrap break-words">{error}</div>
+              <button
+                type="button"
+                onClick={() => setLogsOpen(true)}
+                className="inline-flex items-center gap-1.5 text-[11px] underline hover:no-underline"
+              >
+                <ScrollText className="w-3 h-3" />
+                {t('viewLog', { defaultValue: 'View log' })}
+              </button>
             </div>
           )}
 
@@ -423,6 +433,8 @@ export function DeploymentCreateDialog({
           </div>
         </form>
       </div>
+
+      <LogViewer open={logsOpen} onOpenChange={setLogsOpen} />
     </div>
   )
 }

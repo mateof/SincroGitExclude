@@ -1,3 +1,4 @@
+import { describeError } from '../utils/errors'
 import { ipcMain } from 'electron'
 import type { SnapshotService } from '../services/snapshot-service'
 
@@ -13,7 +14,7 @@ export function registerSnapshotHandlers(snapshotService: SnapshotService): void
         )
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -25,7 +26,7 @@ export function registerSnapshotHandlers(snapshotService: SnapshotService): void
         const data = snapshotService.getSnapshotCountForCommit(deploymentId, commitHash)
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -35,7 +36,7 @@ export function registerSnapshotHandlers(snapshotService: SnapshotService): void
       const data = await snapshotService.getFullStateAtSnapshot(snapshotId)
       return { success: true, data }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -44,7 +45,7 @@ export function registerSnapshotHandlers(snapshotService: SnapshotService): void
       const data = snapshotService.getSnapshotFiles(snapshotId)
       return { success: true, data }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -53,7 +54,7 @@ export function registerSnapshotHandlers(snapshotService: SnapshotService): void
       await snapshotService.applySnapshot(snapshotId)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -64,7 +65,7 @@ export function registerSnapshotHandlers(snapshotService: SnapshotService): void
         const data = await snapshotService.deploySnapshot(snapshotId, destFolder)
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -74,7 +75,7 @@ export function registerSnapshotHandlers(snapshotService: SnapshotService): void
       snapshotService.setEnabled(enabled)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 }

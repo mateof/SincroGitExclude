@@ -32,6 +32,7 @@
     "changeLocation": "Cambiar ubicacion",
     "resetLocation": "Restaurar por defecto",
     "customLocation": "Ubicacion personalizada",
+    "cloudSyncWarning": "Esta ubicación está dentro de una carpeta sincronizada en la nube (Synology Drive, Dropbox, OneDrive, iCloud, Google Drive). El cliente de sincronización modifica los ficheros de la base de datos mientras la aplicación los está usando, lo que provoca fallos intermitentes de \"disk I/O error\" al crear despliegues, commits o snapshots. Mueve los datos a una carpeta local.",
     "changeDialog": {
       "title": "Cambiar ubicacion de datos",
       "resetTitle": "Restaurar ubicacion por defecto",
@@ -52,6 +53,26 @@
     "description": "Guardar automaticamente un snapshot cada vez que un fichero gestionado cambia. Los snapshots se guardan entre commits y se pueden consultar en la linea temporal del historial.",
     "enabled": "Activado",
     "disabled": "Desactivado"
+  },
+  "logs": {
+    "label": "Log de la aplicación",
+    "description": "Consulta qué hace la aplicación por dentro: operaciones git, despliegues y cualquier error, con su causa real.",
+    "open": "Ver log",
+    "title": "Log de la aplicación",
+    "empty": "No hay entradas en el log",
+    "copy": "Copiar entradas visibles",
+    "openFolder": "Mostrar el fichero de log en la carpeta",
+    "clear": "Vaciar el log",
+    "verbose": "Detallado",
+    "verboseHint": "Registrar también cada operación interna (nivel debug). Útil para reproducir un problema; hace que el log crezca más rápido.",
+    "count": "{{shown}} de {{total}} entradas",
+    "levels": {
+      "all": "Todos los niveles",
+      "error": "Errores",
+      "warn": "Avisos y superiores",
+      "info": "Info y superiores",
+      "debug": "Todo (debug)"
+    }
   },
   "about": {
     "label": "Acerca de",

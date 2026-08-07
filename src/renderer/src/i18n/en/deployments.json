@@ -101,8 +101,10 @@
     "deactivated": "Deployment deactivated successfully",
     "reactivated": "Deployment reactivated successfully",
     "synced": "Deployment synced successfully",
+    "createError": "Failed to create deployment.",
     "noDeployments": "No deployments yet. Add a deployment to start tracking a file in a repository."
   },
+  "viewLog": "View log",
   "partialDeploy": {
     "title": "Extract files",
     "description": "Create a new managed file from selected files of this bundle",

@@ -43,6 +43,10 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [error, setError] = useState('')
+  // Set when the managed file was created but its deployment failed: the file
+  // already exists, so submitting again would duplicate it
+  const [createdFileId, setCreatedFileId] = useState<string | null>(null)
 
   // Selection result
   const [selection, setSelection] = useState<SelectItemsResult | null>(null)
@@ -54,6 +58,15 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
     setAlias('')
     setSelectedTagIds([])
     setSelection(null)
+    setError('')
+    setCreatedFileId(null)
+  }
+
+  const closeAfterPartialCreate = () => {
+    const id = createdFileId
+    reset()
+    onOpenChange(false)
+    if (id) selectFile(id)
   }
 
   const generateSlug = (text: string): string => {
@@ -117,6 +130,7 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
     if (!name.trim() || !alias.trim()) return
 
     setLoading(true)
+    setError('')
 
     const tagIds = selectedTagIds.length > 0 ? selectedTagIds : undefined
 
@@ -133,7 +147,7 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
       if (file) {
         if (bundle.repoPath && bundle.baseRelativePath) {
           const autoExclude = localStorage.getItem('autoExclude') !== 'false'
-          await createDeployment(
+          const result = await createDeployment(
             file.id,
             bundle.repoPath,
             bundle.baseRelativePath,
@@ -141,6 +155,12 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
             undefined,
             autoExclude
           )
+          if (!result.deployment) {
+            setCreatedFileId(file.id)
+            setError(t('deploymentFailed', { error: result.error ?? '' }))
+            setLoading(false)
+            return
+          }
         }
         selectFile(file.id)
         reset()
@@ -153,7 +173,7 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
         const single = selection as SelectFileResult
         if (single.repoPath && single.fileRelativePath) {
           const autoExclude = localStorage.getItem('autoExclude') !== 'false'
-          await createDeployment(
+          const result = await createDeployment(
             file.id,
             single.repoPath,
             single.fileRelativePath,
@@ -161,6 +181,12 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
             undefined,
             autoExclude
           )
+          if (!result.deployment) {
+            setCreatedFileId(file.id)
+            setError(t('deploymentFailed', { error: result.error ?? '' }))
+            setLoading(false)
+            return
+          }
         }
         selectFile(file.id)
         reset()
@@ -350,21 +376,39 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
             </div>
           )}
 
+          {error && (
+            <div className="p-3 text-xs text-destructive bg-destructive/10 rounded-lg whitespace-pre-wrap">
+              {error}
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => { reset(); onOpenChange(false) }}
-              className="px-4 py-2 text-sm rounded-lg hover:bg-secondary transition-colors"
-            >
-              {tc('actions.cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim() || !alias.trim() || loading}
-              className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? '...' : tc('actions.create')}
-            </button>
+            {createdFileId ? (
+              <button
+                type="button"
+                onClick={closeAfterPartialCreate}
+                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                {tc('actions.close')}
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { reset(); onOpenChange(false) }}
+                  className="px-4 py-2 text-sm rounded-lg hover:bg-secondary transition-colors"
+                >
+                  {tc('actions.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={!name.trim() || !alias.trim() || loading}
+                  className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? '...' : tc('actions.create')}
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>

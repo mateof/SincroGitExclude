@@ -32,6 +32,7 @@
     "changeLocation": "Change location",
     "resetLocation": "Reset to default",
     "customLocation": "Custom location",
+    "cloudSyncWarning": "This location is inside a cloud-synced folder (Synology Drive, Dropbox, OneDrive, iCloud, Google Drive). The sync client modifies the database files while the application is using them, which causes intermittent \"disk I/O error\" failures when creating deployments, commits or snapshots. Move the data to a local folder.",
     "changeDialog": {
       "title": "Change data location",
       "resetTitle": "Restore default location",
@@ -52,6 +53,26 @@
     "description": "Automatically save a snapshot every time a managed file changes. Snapshots are saved between commits and can be browsed in the history timeline.",
     "enabled": "Enabled",
     "disabled": "Disabled"
+  },
+  "logs": {
+    "label": "Application log",
+    "description": "See what the application is doing internally: git operations, deployments and any error, with its real cause.",
+    "open": "View log",
+    "title": "Application log",
+    "empty": "No log entries",
+    "copy": "Copy visible entries",
+    "openFolder": "Show log file in folder",
+    "clear": "Clear log",
+    "verbose": "Verbose",
+    "verboseHint": "Also record every internal operation (debug level). Useful to reproduce a problem; makes the log grow faster.",
+    "count": "{{shown}} of {{total}} entries",
+    "levels": {
+      "all": "All levels",
+      "error": "Errors",
+      "warn": "Warnings and above",
+      "info": "Info and above",
+      "debug": "Everything (debug)"
+    }
   },
   "about": {
     "label": "About",

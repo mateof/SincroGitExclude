@@ -101,8 +101,10 @@
     "deactivated": "Despliegue desactivado correctamente",
     "reactivated": "Despliegue reactivado correctamente",
     "synced": "Despliegue sincronizado correctamente",
+    "createError": "No se pudo crear el despliegue.",
     "noDeployments": "Aun no hay despliegues. Agregue un despliegue para comenzar a rastrear un archivo en un repositorio."
   },
+  "viewLog": "Ver log",
   "partialDeploy": {
     "title": "Extraer ficheros",
     "description": "Crear un nuevo fichero gestionado a partir de ficheros seleccionados de este bundle",

@@ -1,5 +1,6 @@
 {
   "title": "Archivos gestionados",
+  "deploymentFailed": "El fichero se creó, pero no se pudo crear el despliegue: {{error}}",
   "createTitle": "Nuevo archivo",
   "editTitle": "Editar archivo",
   "fields": {

@@ -1,3 +1,4 @@
+import { describeError } from '../utils/errors'
 import { ipcMain } from 'electron'
 import { CommitService } from '../services/commit-service'
 
@@ -6,7 +7,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
     try {
       return { success: true, data: await commitService.listCommits(deploymentId) }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -17,7 +18,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
         const data = await commitService.createCommit(deploymentId, message, tag, selectedFiles)
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -27,7 +28,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
       const data = await commitService.getChangedFiles(deploymentId)
       return { success: true, data }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -38,7 +39,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
         const data = await commitService.getDiff(deploymentId, hash1, hash2)
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -48,7 +49,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
       const data = await commitService.getDiffWorking(deploymentId)
       return { success: true, data }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -59,7 +60,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
         await commitService.checkoutToCommit(deploymentId, commitHash)
         return { success: true }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -69,7 +70,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
       const data = await commitService.getCurrentFiles(deploymentId)
       return { success: true, data }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -80,7 +81,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
         const data = await commitService.getFileAtCommit(deploymentId, commitHash)
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -92,7 +93,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
         const data = await commitService.getFilesAtCommit(deploymentId, commitHash)
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -104,7 +105,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
         const data = await commitService.getCrossDiff(targetDeploymentId, sourceCommitHash)
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -116,7 +117,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
         const data = await commitService.applyFromCommit(targetDeploymentId, sourceCommitHash, message)
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -128,7 +129,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
         await commitService.restoreFilesFromCommit(deploymentId, commitHash, filePaths)
         return { success: true }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -138,7 +139,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
       await commitService.discardFiles(deploymentId, filePaths)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -147,7 +148,7 @@ export function registerCommitHandlers(commitService: CommitService): void {
       await commitService.discardChanges(deploymentId)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 }

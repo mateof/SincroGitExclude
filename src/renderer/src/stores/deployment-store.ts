@@ -3,6 +3,11 @@ import type { Deployment } from '../types'
 import type { IpcResult } from '../types'
 import { useFileStore } from './file-store'
 
+export interface CreateDeploymentResult {
+  deployment: Deployment | null
+  error?: string
+}
+
 interface DeploymentStore {
   deployments: Deployment[]
   loading: boolean
@@ -14,7 +19,7 @@ interface DeploymentStore {
     sourceBranch?: string,
     sourceCommit?: string,
     autoExclude?: boolean
-  ) => Promise<Deployment | null>
+  ) => Promise<CreateDeploymentResult>
   deactivateDeployment: (id: string) => Promise<boolean>
   reactivateDeployment: (id: string) => Promise<boolean>
   deleteDeployment: (id: string, deleteFromDisk?: boolean) => Promise<boolean>
@@ -109,9 +114,11 @@ export const useDeploymentStore = create<DeploymentStore>((set, get) => ({
         '/'
       )
       set((s) => ({ deployments: [deployment, ...s.deployments] }))
-      return deployment
+      return { deployment }
     }
-    return null
+    // Surface the real reason from the main process instead of letting the
+    // caller invent a generic one
+    return { deployment: null, error: result.error }
   },
 
   deactivateDeployment: async (id) => {

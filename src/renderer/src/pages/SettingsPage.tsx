@@ -5,6 +5,7 @@ import { useUIStore } from '@/stores/ui-store'
 import type { IpcResult } from '@/types'
 import { DataDirChangeDialog } from '@/components/settings/DataDirChangeDialog'
 import { UpdateChecker } from '@/components/settings/UpdateChecker'
+import { LogViewer } from '@/components/settings/LogViewer'
 import {
   Globe,
   Download,
@@ -22,7 +23,8 @@ import {
   FolderArchive,
   RotateCcw,
   ExternalLink,
-  Camera
+  Camera,
+  ScrollText
 } from 'lucide-react'
 
 export function SettingsPage() {
@@ -34,15 +36,16 @@ export function SettingsPage() {
   const [snapshotsEnabled, setSnapshotsEnabled] = useState(() => localStorage.getItem('snapshotsEnabled') !== 'false')
   const [confirmDeleteTagId, setConfirmDeleteTagId] = useState<string | null>(null)
   const [exportLoading, setExportLoading] = useState(false)
-  const [paths, setPaths] = useState<{ dbPath: string; filesDir: string; appDataDir: string; defaultDataDir: string; isCustom: boolean; appVersion: string } | null>(null)
+  const [paths, setPaths] = useState<{ dbPath: string; filesDir: string; appDataDir: string; defaultDataDir: string; isCustom: boolean; isCloudSynced: boolean; appVersion: string } | null>(null)
   const [changeDirOpen, setChangeDirOpen] = useState(false)
   const [newDir, setNewDir] = useState('')
   const [targetHasData, setTargetHasData] = useState(false)
   const [isResetDialog, setIsResetDialog] = useState(false)
+  const [logsOpen, setLogsOpen] = useState(false)
 
   useEffect(() => {
     loadTags()
-    window.api.invoke<IpcResult<{ dbPath: string; filesDir: string; appDataDir: string; defaultDataDir: string; isCustom: boolean; appVersion: string }>>('app:get-paths').then((r) => {
+    window.api.invoke<IpcResult<{ dbPath: string; filesDir: string; appDataDir: string; defaultDataDir: string; isCustom: boolean; isCloudSynced: boolean; appVersion: string }>>('app:get-paths').then((r) => {
       if (r.success && r.data) setPaths(r.data)
     })
   }, [loadTags])
@@ -294,6 +297,13 @@ export function SettingsPage() {
             </div>
             <p className="text-xs text-muted-foreground mb-3">{t('appData.description')}</p>
 
+            {paths.isCloudSynced && (
+              <div className="flex items-start gap-2 p-3 mb-3 bg-warning/10 border border-warning/30 rounded-lg text-xs text-warning">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{t('appData.cloudSyncWarning')}</span>
+              </div>
+            )}
+
             <div className="space-y-2 mb-3">
               {/* Database path */}
               <div className="flex items-center gap-2">
@@ -423,6 +433,22 @@ export function SettingsPage() {
           </button>
         </div>
 
+        {/* Logs */}
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <ScrollText className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">{t('logs.label')}</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">{t('logs.description')}</p>
+          <button
+            onClick={() => setLogsOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-secondary rounded-lg hover:bg-muted transition-colors"
+          >
+            <ScrollText className="w-3.5 h-3.5" />
+            {t('logs.open')}
+          </button>
+        </div>
+
         {/* About */}
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -465,6 +491,8 @@ export function SettingsPage() {
           </div>
         )}
       </div>
+
+      <LogViewer open={logsOpen} onOpenChange={setLogsOpen} />
 
       <DataDirChangeDialog
         open={changeDirOpen}

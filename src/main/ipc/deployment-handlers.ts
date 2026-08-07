@@ -1,3 +1,4 @@
+import { describeError } from '../utils/errors'
 import { ipcMain } from 'electron'
 import { DeploymentService } from '../services/deployment-service'
 
@@ -8,7 +9,7 @@ export function registerDeploymentHandlers(
     try {
       return { success: true, data: deploymentService.listDeployments(fileId) }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -25,7 +26,7 @@ export function registerDeploymentHandlers(
         }
       }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -51,7 +52,7 @@ export function registerDeploymentHandlers(
         )
         return { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -61,7 +62,7 @@ export function registerDeploymentHandlers(
       await deploymentService.deactivateDeployment(id)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -70,7 +71,7 @@ export function registerDeploymentHandlers(
       await deploymentService.reactivateDeployment(id)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -79,7 +80,7 @@ export function registerDeploymentHandlers(
       await deploymentService.deleteDeployment(id, deleteFromDisk)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -88,7 +89,7 @@ export function registerDeploymentHandlers(
       await deploymentService.syncDeployment(id)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -97,7 +98,7 @@ export function registerDeploymentHandlers(
       const hasChanges = await deploymentService.checkForChanges(id)
       return { success: true, data: hasChanges }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -106,7 +107,7 @@ export function registerDeploymentHandlers(
       const isExcluded = await deploymentService.checkExcludeStatus(id)
       return { success: true, data: isExcluded }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -115,7 +116,7 @@ export function registerDeploymentHandlers(
       const exists = deploymentService.checkFileExists(id)
       return { success: true, data: exists }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -124,7 +125,7 @@ export function registerDeploymentHandlers(
       const data = deploymentService.updateDescription(id, description)
       return { success: true, data }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -133,7 +134,7 @@ export function registerDeploymentHandlers(
       deploymentService.setDeploymentTags(deploymentId, tagIds)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 }

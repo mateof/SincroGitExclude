@@ -1,3 +1,4 @@
+import { describeError, isCloudSyncedPath } from '../utils/errors'
 import { ipcMain, dialog, shell, app, BrowserWindow } from 'electron'
 import { existsSync, readdirSync, statSync, mkdirSync, cpSync, writeFileSync, unlinkSync, rmSync } from 'fs'
 import { join, dirname, basename, relative, sep } from 'path'
@@ -230,7 +231,7 @@ export function registerAppHandlers(): void {
         }
       }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -332,7 +333,7 @@ export function registerAppHandlers(): void {
           }
         }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -368,7 +369,7 @@ export function registerAppHandlers(): void {
         }
       }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -390,7 +391,7 @@ export function registerAppHandlers(): void {
         result.filePaths.length === 1 && statSync(result.filePaths[0]).isDirectory()
       return resolveItems(result.filePaths, hasDirectory)
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -403,7 +404,7 @@ export function registerAppHandlers(): void {
         paths.length === 1 && existsSync(paths[0]) && statSync(paths[0]).isDirectory()
       return resolveItems(paths, hasDirectory)
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -413,7 +414,7 @@ export function registerAppHandlers(): void {
       shell.showItemInFolder(targetPath)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -439,6 +440,10 @@ export function registerAppHandlers(): void {
         appDataDir: APP_DATA_DIR,
         defaultDataDir: DEFAULT_DATA_DIR,
         isCustom: APP_DATA_DIR !== DEFAULT_DATA_DIR,
+        // SQLite is unreliable on cloud-synced folders: the sync client
+        // rewrites the -wal/-shm files under the running connection and
+        // operations start failing with "disk I/O error"
+        isCloudSynced: isCloudSyncedPath(APP_DATA_DIR),
         appVersion: app.getVersion()
       }
     }
@@ -450,7 +455,7 @@ export function registerAppHandlers(): void {
       await shell.openPath(dirPath)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -495,7 +500,7 @@ export function registerAppHandlers(): void {
       relaunchApp()
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -505,7 +510,7 @@ export function registerAppHandlers(): void {
       await shell.openExternal(url)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -546,7 +551,7 @@ export function registerAppHandlers(): void {
       relaunchApp()
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 }

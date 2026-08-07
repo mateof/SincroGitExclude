@@ -1,3 +1,4 @@
+import { describeError } from '../utils/errors'
 import { ipcMain } from 'electron'
 import { existsSync, statSync, realpathSync } from 'fs'
 import { basename, isAbsolute, join, relative } from 'path'
@@ -125,7 +126,7 @@ export function registerRepoHandlers(
     try {
       return { success: true, data: repoService.listRepos() }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -134,7 +135,7 @@ export function registerRepoHandlers(
       const data = await repoService.getRepo(id)
       return { success: true, data }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -146,7 +147,7 @@ export function registerRepoHandlers(
       }
       return { success: true, data: repo }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -156,7 +157,7 @@ export function registerRepoHandlers(
       try {
         return { success: true, data: repoService.updateDescription(id, description) }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -166,7 +167,7 @@ export function registerRepoHandlers(
       repoService.removeRepo(id)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -175,7 +176,7 @@ export function registerRepoHandlers(
       repoService.setRepoTags(repoId, tagIds)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -183,7 +184,7 @@ export function registerRepoHandlers(
     try {
       return { success: true, data: repoService.listRepoDeployments(repoId) }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -230,7 +231,7 @@ export function registerRepoHandlers(
 
       return { success: true, data: enriched }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -241,7 +242,7 @@ export function registerRepoHandlers(
       await excludeService.addManualExclusion(repo.path, pattern)
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: describeError(error) }
     }
   })
 
@@ -254,7 +255,7 @@ export function registerRepoHandlers(
         await excludeService.removeExclusionByLine(repo.path, lineNumber, expectedPattern)
         return { success: true }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
@@ -267,7 +268,7 @@ export function registerRepoHandlers(
         if (!repo) throw new Error('Repo not found')
         return { success: true, data: validatePattern(repo.path, pattern) }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        return { success: false, error: describeError(error) }
       }
     }
   )
