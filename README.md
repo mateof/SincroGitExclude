@@ -1,5 +1,13 @@
 # SincroGitExclude
 
+<p align="center">
+  <a href="https://github.com/mateof/SincroGitExclude/actions/workflows/release.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/mateof/SincroGitExclude/release.yml?branch=main&amp;label=CI&amp;logo=github"></a>
+  <a href="https://github.com/mateof/SincroGitExclude/releases/latest"><img alt="Version" src="https://img.shields.io/github/v/release/mateof/SincroGitExclude?label=version&amp;color=blue"></a>
+  <a href="https://github.com/mateof/SincroGitExclude/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/mateof/SincroGitExclude/total?label=downloads&amp;color=success"></a>
+  <a href="https://www.electronjs.org/"><img alt="Electron" src="https://img.shields.io/badge/Electron-Vite-47848F?logo=electron&amp;logoColor=white"></a>
+  <a href="https://github.com/mateof/SincroGitExclude/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/mateof/SincroGitExclude"></a>
+</p>
+
 Desktop application for managing git-excluded files with built-in version control.
 
 ## Problem
