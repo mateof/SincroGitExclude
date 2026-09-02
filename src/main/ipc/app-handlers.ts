@@ -1,7 +1,9 @@
 import { describeError, isCloudSyncedPath } from '../utils/errors'
 import { ipcMain, dialog, shell, app, BrowserWindow } from 'electron'
 import { existsSync, readdirSync, statSync, mkdirSync, cpSync, writeFileSync, unlinkSync, rmSync } from 'fs'
-import { join, dirname, basename, relative, sep } from 'path'
+import { join, dirname, basename, relative, sep, isAbsolute } from 'path'
+import { homedir } from 'os'
+import { isWebEvent } from './channel-registry'
 import {
   APP_DATA_DIR,
   DEFAULT_DATA_DIR,
@@ -11,6 +13,9 @@ import {
 } from '../app-paths'
 import { closeDb } from '../database/connection'
 import log from 'electron-log'
+
+const WEB_MODE_RELAUNCH_ERROR =
+  'Esta operacion reinicia la aplicacion y solo puede hacerse desde la ventana de escritorio.'
 
 function relaunchApp(): void {
   closeDb()
@@ -265,7 +270,9 @@ export function registerAppHandlers(): void {
     const outsideRepo: string[] = []
     for (const absPath of result.filePaths) {
       const rel = relative(repoPath, absPath).replace(/\\/g, '/')
-      if (rel.startsWith('..') || rel === '' || rel === '.') {
+      // isAbsolute catches a different drive letter on Windows: relative()
+      // returns the whole path unchanged there, with no leading '..' to spot
+      if (rel.startsWith('..') || isAbsolute(rel) || rel === '' || rel === '.') {
         outsideRepo.push(absPath)
         continue
       }
@@ -408,6 +415,130 @@ export function registerAppHandlers(): void {
     }
   })
 
+  // ---------------------------------------------------------------------------
+  // Remote browsing. Browser clients have no native dialogs, so they walk the
+  // server's filesystem through fs:browse and then feed the chosen paths into
+  // the same pure resolvers the drag-and-drop path already uses.
+  // ---------------------------------------------------------------------------
+
+  /** Filesystem roots: drive letters on Windows, '/' elsewhere. */
+  function listRoots(): string[] {
+    if (process.platform !== 'win32') return ['/']
+    const drives: string[] = []
+    for (let code = 65; code <= 90; code++) {
+      const drive = `${String.fromCharCode(code)}:\\`
+      try {
+        if (existsSync(drive)) drives.push(drive)
+      } catch {
+        // drive not ready (empty card reader, disconnected network drive)
+      }
+    }
+    return drives.length > 0 ? drives : ['C:\\']
+  }
+
+  ipcMain.handle('fs:browse', async (_, dirPath?: string) => {
+    try {
+      const target = dirPath && dirPath.trim() ? dirPath : homedir()
+
+      if (!existsSync(target)) {
+        return { success: false, error: `La ruta no existe: ${target}` }
+      }
+      if (!statSync(target).isDirectory()) {
+        return { success: false, error: `No es una carpeta: ${target}` }
+      }
+
+      const entries: Array<{
+        name: string
+        path: string
+        isDirectory: boolean
+        isGitRepo: boolean
+      }> = []
+
+      for (const entry of readdirSync(target, { withFileTypes: true })) {
+        const fullPath = join(target, entry.name)
+        let isDirectory = entry.isDirectory()
+        // Symlinks report as neither file nor directory until resolved
+        if (entry.isSymbolicLink()) {
+          try {
+            isDirectory = statSync(fullPath).isDirectory()
+          } catch {
+            continue // broken link
+          }
+        }
+        entries.push({
+          name: entry.name,
+          path: fullPath.replace(/\\/g, '/'),
+          isDirectory,
+          isGitRepo: isDirectory && existsSync(join(fullPath, '.git'))
+        })
+      }
+
+      // Folders first, then files, each alphabetically and case-insensitively
+      entries.sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+      })
+
+      const parent = dirname(target)
+
+      return {
+        success: true,
+        data: {
+          path: target.replace(/\\/g, '/'),
+          parent: parent === target ? null : parent.replace(/\\/g, '/'),
+          isGitRepo: existsSync(join(target, '.git')),
+          entries,
+          roots: listRoots().map((r) => r.replace(/\\/g, '/')),
+          home: homedir().replace(/\\/g, '/')
+        }
+      }
+    } catch (error) {
+      return { success: false, error: describeError(error) }
+    }
+  })
+
+  /**
+   * Pure half of 'dialog:select-exclude-targets': turns already-chosen absolute
+   * paths into exclude patterns relative to the repo.
+   */
+  ipcMain.handle('dialog:resolve-exclude-targets', async (_, repoPath: string, paths: string[]) => {
+    if (!paths || paths.length === 0) return null
+
+    const patterns: string[] = []
+    const outsideRepo: string[] = []
+
+    for (const absPath of paths) {
+      const rel = relative(repoPath, absPath).replace(/\\/g, '/')
+      // isAbsolute catches a different drive letter on Windows: relative()
+      // returns the whole path unchanged there, with no leading '..' to spot
+      if (rel.startsWith('..') || isAbsolute(rel) || rel === '' || rel === '.') {
+        outsideRepo.push(absPath)
+        continue
+      }
+      let pattern = rel
+      try {
+        if (statSync(absPath).isDirectory()) {
+          pattern = rel + '/'
+        }
+      } catch {
+        // ignore stat errors, keep raw rel
+      }
+      patterns.push(pattern)
+    }
+
+    return { patterns, outsideRepo }
+  })
+
+  /** Pure half of 'dialog:select-folder-contents'. */
+  ipcMain.handle('dialog:resolve-folder-contents', async (_, folderPath: string) => {
+    try {
+      if (!existsSync(folderPath) || !statSync(folderPath).isDirectory()) return null
+      return { folderPath, files: listFilesRecursive(folderPath) }
+    } catch {
+      return null
+    }
+  })
+
   // Open a path in the system file explorer (highlights the item)
   ipcMain.handle('shell:show-in-folder', async (_, targetPath: string) => {
     try {
@@ -460,7 +591,13 @@ export function registerAppHandlers(): void {
   })
 
   // Change the data directory location
-  ipcMain.handle('app:change-data-dir', async (_, newDir: string, mode: string) => {
+  ipcMain.handle('app:change-data-dir', async (event, newDir: string, mode: string) => {
+    // relaunchApp() destroys every window and calls app.exit(0), which also
+    // kills the web server: a browser client would lose the connection with no
+    // way to bring it back. Refuse over HTTP instead of hiding the button only.
+    if (isWebEvent(event)) {
+      return { success: false, error: WEB_MODE_RELAUNCH_ERROR }
+    }
     try {
       if (!existsSync(newDir) || !statSync(newDir).isDirectory()) {
         return { success: false, error: 'Invalid directory' }
@@ -515,7 +652,10 @@ export function registerAppHandlers(): void {
   })
 
   // Reset data directory to default
-  ipcMain.handle('app:reset-data-dir', async (_, mode: string) => {
+  ipcMain.handle('app:reset-data-dir', async (event, mode: string) => {
+    if (isWebEvent(event)) {
+      return { success: false, error: WEB_MODE_RELAUNCH_ERROR }
+    }
     try {
       if (mode === 'transfer') {
         mkdirSync(join(DEFAULT_DATA_DIR, 'files'), { recursive: true })

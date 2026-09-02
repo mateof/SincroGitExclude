@@ -1,3 +1,6 @@
+// Must run before anything reads window.api: in a browser there is no preload
+// script, so this installs the HTTP/WebSocket implementation of the same API.
+import './lib/web-api'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'

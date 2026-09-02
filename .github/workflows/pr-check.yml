@@ -1,0 +1,33 @@
+name: PR Check
+
+# Green check on pull requests before merging into develop or main.
+#
+# Kept out of release.yml on purpose: that workflow's jobs are chained through
+# `needs: prepare` and its should_release guard, and bolting a pull_request
+# trigger onto it risks breaking the production release path for no gain.
+#
+# One platform only — this verifies that the code compiles, not that the
+# installers package. The full three-platform build happens on the dev tag.
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  build:
+    name: Compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npx electron-vite build

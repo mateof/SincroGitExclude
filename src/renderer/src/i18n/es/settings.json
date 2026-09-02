@@ -112,5 +112,27 @@
     "upToDate": "Actualizado ({{version}})",
     "checkAgain": "Comprobar de nuevo",
     "checkError": "No se pudo comprobar actualizaciones. Pulsa para reintentar."
+  },
+  "webServer": {
+    "label": "Acceso web",
+    "description": "Sirve la aplicacion por HTTP para usarla desde el navegador de otra maquina. Todo se ejecuta en este ordenador; el navegador es solo la interfaz.",
+    "running": "En marcha",
+    "stopped": "Detenido",
+    "start": "Iniciar servidor",
+    "stop": "Detener servidor",
+    "port": "Puerto",
+    "invalidPort": "Puerto invalido (1-65535)",
+    "bindAll": "Permitir acceso desde otras maquinas de la red",
+    "networkWarning": "El servidor acepta conexiones de la red. Cualquiera con el token puede leer y escribir ficheros y ejecutar git en esta maquina — usalo solo en redes de confianza, o a traves de una VPN.",
+    "token": "Token de acceso",
+    "tokenHint": "Introduce este token la primera vez que abras la direccion en un navegador. Regenerarlo cierra todas las sesiones abiertas.",
+    "showToken": "Mostrar token",
+    "hideToken": "Ocultar token",
+    "copyToken": "Copiar token",
+    "copyUrl": "Copiar direccion",
+    "regenerate": "Regenerar token",
+    "clients_one": "{{count}} navegador conectado",
+    "clients_other": "{{count}} navegadores conectados",
+    "desktopOnly": "El servidor solo se puede iniciar, detener o reconfigurar desde la ventana de escritorio: hacerlo desde aqui cortaria tu propia conexion."
   }
 }

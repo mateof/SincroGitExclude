@@ -53,5 +53,25 @@
     "deleteFromDisk": "Delete from disk",
     "keepOnDisk": "Keep on disk",
     "willDeleteFromDisk": "The deployed file will be deleted from disk"
+  },
+  "remotePicker": {
+    "title": {
+      "directory": "Select folder",
+      "file": "Select file",
+      "files": "Select files",
+      "items": "Select files or folders",
+      "save": "Save as"
+    },
+    "serverHint": "Browsing the filesystem of the machine running the application",
+    "up": "Go up one level",
+    "home": "Home folder",
+    "open": "Open",
+    "empty": "Empty folder",
+    "browseFailed": "Could not read the folder",
+    "fileName": "File name",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected",
+    "nothingSelected": "Nothing selected",
+    "willUseCurrent": "The current folder will be used"
   }
 }

@@ -89,7 +89,7 @@ export function DeploymentCard({
   const { tags: allTags, createTag } = useFileStore()
   const { changedDeployments, deletedDeployments, clearChanged } = useWatcherStore()
   const { repos } = useRepoStore()
-  const { selectRepo } = useUIStore()
+  const { selectRepo, isWebMode } = useUIStore()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
@@ -486,7 +486,8 @@ export function DeploymentCard({
               </button>
             )}
 
-            {/* Open folder */}
+            {/* Open folder — desktop only: it would open on the server's machine */}
+            {!isWebMode && (
             <button
               onClick={handleOpenFolder}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-secondary transition-colors text-muted-foreground"
@@ -495,6 +496,7 @@ export function DeploymentCard({
             >
               <FolderOpen className="w-3.5 h-3.5" />
             </button>
+            )}
 
             {/* History */}
             <button
@@ -698,7 +700,8 @@ export function DeploymentCard({
               {t('actions.reactivate')}
             </button>
 
-            {/* Open folder */}
+            {/* Open folder — desktop only: it would open on the server's machine */}
+            {!isWebMode && (
             <button
               onClick={handleOpenFolder}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-secondary transition-colors text-muted-foreground"
@@ -707,6 +710,7 @@ export function DeploymentCard({
             >
               <FolderOpen className="w-3.5 h-3.5" />
             </button>
+            )}
 
             {/* History (even when inactive) */}
             <button
