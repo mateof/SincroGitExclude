@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useRepoStore } from '@/stores/repo-store'
+import { useUIStore } from '@/stores/ui-store'
 import type { Repo, ExcludeEntry, RepoDeploymentRow } from '@/types'
 import { RepoEditDialog } from '@/components/repos/RepoEditDialog'
 import { RepoDeploymentGroup } from '@/components/repos/RepoDeploymentGroup'
 import { ExcludeEntryList } from '@/components/repos/ExcludeEntryList'
 import { AddExcludeDialog } from '@/components/repos/AddExcludeDialog'
 import { RemoveExcludeConfirmDialog } from '@/components/repos/RemoveExcludeConfirmDialog'
+import { copyText } from '@/lib/clipboard'
 import {
   FolderGit2,
   FolderOpen,
@@ -28,6 +30,7 @@ interface RepoDetailPageProps {
 type Tab = 'managed' | 'exclude'
 
 export function RepoDetailPage({ repoId }: RepoDetailPageProps) {
+  const { isWebMode } = useUIStore()
   const { t } = useTranslation('repos')
   const { t: tc } = useTranslation('common')
   const {
@@ -101,7 +104,7 @@ export function RepoDetailPage({ repoId }: RepoDetailPageProps) {
   }
 
   const handleCopyPath = async () => {
-    await navigator.clipboard.writeText(repo.path)
+    if (!(await copyText(repo.path))) return
     setPathCopied(true)
     setTimeout(() => setPathCopied(false), 1500)
   }
@@ -226,14 +229,17 @@ export function RepoDetailPage({ repoId }: RepoDetailPageProps) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleOpenFolder}
-            disabled={!repo.pathExists}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary disabled:opacity-50 transition-colors"
-          >
-            <FolderOpen className="w-3.5 h-3.5" />
-            {t('detail.openInExplorer')}
-          </button>
+          {/* Desktop only: the explorer would open on the server's machine */}
+          {!isWebMode && (
+            <button
+              onClick={handleOpenFolder}
+              disabled={!repo.pathExists}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary disabled:opacity-50 transition-colors"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              {t('detail.openInExplorer')}
+            </button>
+          )}
           <button
             onClick={startEditDescription}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary transition-colors"

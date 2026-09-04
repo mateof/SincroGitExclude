@@ -1,10 +1,17 @@
 import { create } from 'zustand'
+import { isWebMode } from '@/lib/web-api'
 
 type CurrentView = 'dashboard' | 'file-detail' | 'settings' | 'repo-detail'
 type Theme = 'dark' | 'light'
 type SidebarTab = 'files' | 'repos'
 
 interface UIStore {
+  /**
+   * True when the renderer is served over HTTP instead of running inside the
+   * Electron window. Anything that acts on the *server's* desktop (opening a
+   * folder in the file explorer, relaunching the app) must be hidden when set.
+   */
+  isWebMode: boolean
   currentView: CurrentView
   selectedFileId: string | null
   selectedRepoId: string | null
@@ -22,6 +29,7 @@ interface UIStore {
 }
 
 export const useUIStore = create<UIStore>((set) => ({
+  isWebMode,
   currentView: 'dashboard',
   selectedFileId: null,
   selectedRepoId: null,

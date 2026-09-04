@@ -111,6 +111,41 @@
     "download": "Download",
     "upToDate": "Up to date ({{version}})",
     "checkAgain": "Check again",
-    "checkError": "Could not check for updates. Click to retry."
+    "checkError": "Could not check for updates. Click to retry.",
+    "channel": {
+      "label": "Channel",
+      "stable": "Stable",
+      "beta": "Beta",
+      "dev": "Dev",
+      "stableHint": "Only final releases. Recommended.",
+      "betaHint": "Release candidates before they go stable.",
+      "devHint": "Test builds published from a pull request. May be unstable."
+    }
+  },
+  "webServer": {
+    "label": "Web access",
+    "description": "Serve the application over HTTP so you can use it from a browser on another machine. Everything runs on this computer; the browser is only the interface.",
+    "running": "Running",
+    "stopped": "Stopped",
+    "start": "Start server",
+    "stop": "Stop server",
+    "port": "Port",
+    "invalidPort": "Invalid port (1-65535)",
+    "bindAll": "Allow access from other machines on the network",
+    "networkWarning": "The server accepts connections from the network. Anyone with the token can read and write files and run git on this machine — use it only on networks you trust, or over a VPN.",
+    "token": "Access token",
+    "tokenHint": "Enter this token the first time you open the address in a browser. You can also type your own: at least {{min}} characters, no spaces. Changing or regenerating it signs out every open session.",
+    "saveToken": "Save token",
+    "cancelToken": "Discard changes",
+    "tokenInvalid": "The token must be between {{min}} and {{max}} characters, with no spaces.",
+    "copyError": "Could not copy to the clipboard. Select the text and copy it manually.",
+    "showToken": "Show token",
+    "hideToken": "Hide token",
+    "copyToken": "Copy token",
+    "copyUrl": "Copy address",
+    "regenerate": "Regenerate token",
+    "clients_one": "{{count}} browser connected",
+    "clients_other": "{{count}} browsers connected",
+    "desktopOnly": "The server can only be started, stopped or reconfigured from the desktop window: doing it from here would cut off your own connection."
   }
 }

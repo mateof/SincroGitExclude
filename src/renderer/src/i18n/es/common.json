@@ -53,5 +53,25 @@
     "deleteFromDisk": "Eliminar del disco",
     "keepOnDisk": "Mantener en disco",
     "willDeleteFromDisk": "El fichero desplegado se eliminara del disco"
+  },
+  "remotePicker": {
+    "title": {
+      "directory": "Seleccionar carpeta",
+      "file": "Seleccionar fichero",
+      "files": "Seleccionar ficheros",
+      "items": "Seleccionar ficheros o carpetas",
+      "save": "Guardar como"
+    },
+    "serverHint": "Explorando el sistema de ficheros de la maquina que ejecuta la aplicacion",
+    "up": "Subir un nivel",
+    "home": "Carpeta personal",
+    "open": "Abrir",
+    "empty": "Carpeta vacia",
+    "browseFailed": "No se pudo leer la carpeta",
+    "fileName": "Nombre del fichero",
+    "selectedCount_one": "{{count}} seleccionado",
+    "selectedCount_other": "{{count}} seleccionados",
+    "nothingSelected": "Nada seleccionado",
+    "willUseCurrent": "Se usara la carpeta actual"
   }
 }

@@ -253,6 +253,16 @@ Choose between **English** and **Spanish** (Espanol).
 - **Automatic** (default): When creating a deployment, the file path is automatically added to `.git/info/exclude` in the target repository.
 - **Manual**: You must add the exclusion manually from the deployment card.
 
+### Web Access
+
+Serves the application over HTTP so you can use it from a browser on another machine. Everything still runs on the computer hosting the app; the browser is only the interface.
+
+- **Port**: The port the server listens on (8765 by default).
+- **Allow access from other machines**: Off by default, so only this computer can connect. Turning it on exposes the app to your local network — anyone with the token can read and write files and run git on the host machine.
+- **Access token**: Asked for the first time you open the address in a browser. You can type your own instead of the generated one (at least 8 characters, no spaces) and save it, or regenerate a random one. Either way, every open browser session is signed out.
+
+The server can only be started, stopped or reconfigured from the desktop window: doing it from a browser would cut off that browser's own connection.
+
 ### Application Data
 
 View and change where the application stores its data:
@@ -267,3 +277,15 @@ The application will restart after changing the data location.
 ### About
 
 Shows the application version and a link to the GitHub repository. The update checker automatically verifies if a newer version is available.
+
+#### Update channel
+
+Choose which releases the update checker looks at. Each channel also includes the ones above it:
+
+- **Stable** (default): Only final releases.
+- **Beta**: Stable releases plus release candidates.
+- **Dev**: Everything, including the test builds published from a pull request before it is merged.
+
+Prereleases carry a version such as `1.21.0-beta.1` or `1.21.0-dev.3` and are meant for testing: install them only if you are happy to hit the occasional bug. A build installed from a prerelease follows its own channel by default, so a dev install keeps being offered dev builds.
+
+Updates are not installed automatically: the checker links to the release page so you can download the installer yourself.

@@ -16,6 +16,8 @@ import { ImportService } from './services/import-service'
 import { SnapshotService } from './services/snapshot-service'
 import { RepoService } from './services/repo-service'
 import { registerAllHandlers } from './ipc/register-all'
+import { webServer } from './server/http-server'
+import { readServerConfig } from './server/config'
 import log from 'electron-log'
 
 log.transports.file.level = 'info'
@@ -123,6 +125,9 @@ app.whenReady().then(async () => {
   createWindow()
   watcherService.setMainWindow(mainWindow!)
 
+  // 5b. Browser clients get the same push events as the desktop window
+  watcherService.addEmitter((channel, ...args) => webServer.broadcast(channel, ...args))
+
   // 6. Start watchers for active deployments
   try {
     const deployments = db
@@ -147,6 +152,16 @@ app.whenReady().then(async () => {
   } catch (err) {
     log.error('Failed to start watchers:', err)
   }
+
+  // 7. Start the web server if the user left it enabled
+  try {
+    if (readServerConfig().enabled) {
+      await webServer.start()
+    }
+  } catch (err) {
+    // A busy port must not stop the desktop app from working
+    log.error('Failed to start web server:', err)
+  }
 })
 
 app.on('window-all-closed', () => {
@@ -156,6 +171,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', async () => {
+  await webServer.stop()
   if (watcherService) {
     await watcherService.unwatchAll()
   }

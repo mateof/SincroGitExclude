@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { registerChannel, type ChannelHandler } from './channel-registry'
 import log from 'electron-log'
 import { FileService } from '../services/file-service'
 import { DeploymentService } from '../services/deployment-service'
@@ -17,6 +18,7 @@ import { registerAppHandlers } from './app-handlers'
 import { registerSnapshotHandlers } from './snapshot-handlers'
 import { registerRepoHandlers } from './repo-handlers'
 import { registerLogHandlers } from './log-handlers'
+import { registerServerHandlers } from './server-handlers'
 import type { SnapshotService } from '../services/snapshot-service'
 import type { RepoService } from '../services/repo-service'
 
@@ -51,15 +53,15 @@ function formatArgs(args: unknown[]): string {
  * Without this, a handler that returns `{ success: false, error }` leaves no
  * trace anywhere — the renderer used to swallow the message and show a generic
  * one, which made real causes impossible to diagnose.
+ *
+ * The same wrapper also records each handler in the channel registry so non-IPC
+ * transports can reach it without duplicating any registration.
  */
 function installIpcLogging(): void {
   const original = ipcMain.handle.bind(ipcMain)
 
-  ipcMain.handle = ((
-    channel: string,
-    listener: (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown
-  ) => {
-    original(channel, async (event, ...args: unknown[]) => {
+  ipcMain.handle = ((channel: string, listener: ChannelHandler) => {
+    const logged: ChannelHandler = async (event, ...args: unknown[]) => {
       const quiet = QUIET_CHANNELS.has(channel)
       if (!quiet) log.debug(`IPC → ${channel}(${formatArgs(args)})`)
 
@@ -81,7 +83,10 @@ function installIpcLogging(): void {
         log.error(`IPC ✗ ${channel}(${formatArgs(args)}) threw:`, error)
         throw error
       }
-    })
+    }
+
+    registerChannel(channel, logged)
+    original(channel, logged)
   }) as typeof ipcMain.handle
 }
 
@@ -110,4 +115,5 @@ export function registerAllHandlers(services: Services): void {
   registerSnapshotHandlers(services.snapshotService)
   registerRepoHandlers(services.repoService, services.gitExcludeService)
   registerLogHandlers()
+  registerServerHandlers()
 }

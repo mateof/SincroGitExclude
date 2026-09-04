@@ -6,6 +6,7 @@ import type { IpcResult } from '@/types'
 import { DataDirChangeDialog } from '@/components/settings/DataDirChangeDialog'
 import { UpdateChecker } from '@/components/settings/UpdateChecker'
 import { LogViewer } from '@/components/settings/LogViewer'
+import { WebServerSettings } from '@/components/settings/WebServerSettings'
 import {
   Globe,
   Download,
@@ -31,7 +32,7 @@ export function SettingsPage() {
   const { t, i18n } = useTranslation('settings')
   const { t: tc } = useTranslation('common')
   const { tags, loadTags, deleteTag, loadFiles } = useFileStore()
-  const { theme, setTheme } = useUIStore()
+  const { theme, setTheme, isWebMode } = useUIStore()
   const [autoExclude, setAutoExclude] = useState(() => localStorage.getItem('autoExclude') !== 'false')
   const [snapshotsEnabled, setSnapshotsEnabled] = useState(() => localStorage.getItem('snapshotsEnabled') !== 'false')
   const [confirmDeleteTagId, setConfirmDeleteTagId] = useState<string | null>(null)
@@ -310,13 +311,16 @@ export function SettingsPage() {
                 <Database className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="text-xs text-muted-foreground shrink-0">{t('appData.database')}:</span>
                 <span className="text-xs font-mono truncate flex-1" title={paths.dbPath}>{paths.dbPath}</span>
-                <button
-                  onClick={() => window.api.invoke('app:open-path', paths.appDataDir)}
-                  className="p-1 rounded hover:bg-secondary transition-colors shrink-0"
-                  title={t('appData.openFolder')}
-                >
-                  <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                </button>
+                {/* Desktop only: opens on the server's machine */}
+                {!isWebMode && (
+                  <button
+                    onClick={() => window.api.invoke('app:open-path', paths.appDataDir)}
+                    className="p-1 rounded hover:bg-secondary transition-colors shrink-0"
+                    title={t('appData.openFolder')}
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                )}
               </div>
 
               {/* Files path */}
@@ -324,17 +328,22 @@ export function SettingsPage() {
                 <FolderArchive className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="text-xs text-muted-foreground shrink-0">{t('appData.files')}:</span>
                 <span className="text-xs font-mono truncate flex-1" title={paths.filesDir}>{paths.filesDir}</span>
-                <button
-                  onClick={() => window.api.invoke('app:open-path', paths.filesDir)}
-                  className="p-1 rounded hover:bg-secondary transition-colors shrink-0"
-                  title={t('appData.openFolder')}
-                >
-                  <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                </button>
+                {/* Desktop only: opens on the server's machine */}
+                {!isWebMode && (
+                  <button
+                    onClick={() => window.api.invoke('app:open-path', paths.filesDir)}
+                    className="p-1 rounded hover:bg-secondary transition-colors shrink-0"
+                    title={t('appData.openFolder')}
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="flex gap-2">
+            {/* Changing the data dir relaunches the app, which would kill the web
+                server and the browser session — app-handlers refuses it too */}
+            <div className={`flex gap-2 ${isWebMode ? 'hidden' : ''}`}>
               <button
                 onClick={handleChangeDir}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-secondary rounded-lg hover:bg-muted transition-colors"
@@ -354,6 +363,9 @@ export function SettingsPage() {
             </div>
           </div>
         )}
+
+        {/* Web access */}
+        <WebServerSettings />
 
         {/* Tags Management */}
         <div className="bg-card border border-border rounded-xl p-4">

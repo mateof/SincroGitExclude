@@ -1,0 +1,350 @@
+name: Prerelease
+
+# Publishes a prerelease on the `dev` or `beta` channel. Three ways in:
+#
+#   * label a PR with `dev-release` or `beta-release` -> builds that PR's head
+#   * Run workflow (workflow_dispatch)                -> builds a PR by number,
+#     or any branch/tag/sha
+#   * push a prerelease tag (v1.21.0-dev.3, v1.21.0-beta.1)
+#
+# Unlike release.yml the version does not need a tag to exist first: for PR and
+# manual runs the tag is created together with the release, pointing at the
+# exact commit that was built (`gh release create --target <sha>`). The "skip if
+# the tag exists" guard from release.yml must NOT be reused when the tag is the
+# trigger.
+on:
+  push:
+    tags:
+      - 'v*-dev*'
+      - 'v*-beta*'
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Channel'
+        type: choice
+        options:
+          - dev
+          - beta
+        default: dev
+      pr:
+        description: 'PR number to build (leave empty to use `ref`)'
+        type: string
+      ref:
+        description: 'Branch, tag or sha to build when no PR number is given'
+        type: string
+        default: develop
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# One prerelease build at a time per PR / branch: pushing again to a labelled PR
+# supersedes the build in flight instead of racing it for the next tag number.
+concurrency:
+  group: prerelease-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    name: Prepare Prerelease
+    # A fork PR gets a read-only token and would run untrusted code with our
+    # release credentials, so only same-repo PRs may publish.
+    if: |
+      github.event_name != 'pull_request' ||
+      ((github.event.label.name == 'dev-release' || github.event.label.name == 'beta-release') &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      channel: ${{ steps.target.outputs.channel }}
+      ref: ${{ steps.target.outputs.ref }}
+      pr: ${{ steps.target.outputs.pr }}
+    steps:
+      - name: Resolve target commit and channel
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
+          INPUT_PR: ${{ inputs.pr }}
+          INPUT_REF: ${{ inputs.ref }}
+          LABEL: ${{ github.event.label.name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            pull_request)
+              # `dev-release` / `beta-release` -> dev / beta
+              CHANNEL="${LABEL%-release}"
+              REF="$PR_HEAD_SHA"
+              PR="$PR_NUMBER"
+              FROM_TAG=false
+              ;;
+            push)
+              # The tag drives everything: v1.21.0-beta.2 -> beta
+              case "$GITHUB_REF_NAME" in
+                *-beta*) CHANNEL=beta ;;
+                *)       CHANNEL=dev ;;
+              esac
+              REF="$GITHUB_REF_NAME"
+              PR=""
+              FROM_TAG=true
+              ;;
+            *)
+              CHANNEL="$INPUT_CHANNEL"
+              PR="$INPUT_PR"
+              FROM_TAG=false
+              if [ -n "$PR" ]; then
+                REF=$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json headRefOid -q .headRefOid)
+              else
+                REF="$INPUT_REF"
+              fi
+              ;;
+          esac
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+          echo "ref=$REF" >> $GITHUB_OUTPUT
+          echo "pr=$PR" >> $GITHUB_OUTPUT
+          echo "from_tag=$FROM_TAG" >> $GITHUB_OUTPUT
+          echo "Building channel=$CHANNEL from ref=$REF pr=${PR:-none}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.target.outputs.ref }}
+          # Tags are needed to pick the next free prerelease number
+          fetch-depth: 0
+
+      - name: Resolve version and tag
+        id: version
+        env:
+          FROM_TAG: ${{ steps.target.outputs.from_tag }}
+          CHANNEL: ${{ steps.target.outputs.channel }}
+        run: |
+          set -euo pipefail
+          if [ "$FROM_TAG" = "true" ]; then
+            TAG="$GITHUB_REF_NAME"
+            VERSION="${TAG#v}"
+          else
+            # package.json on develop is kept ahead of the last stable release,
+            # so 1.21.0-dev.N sorts above 1.20.x for the in-app update check.
+            BASE=$(node -p "require('./package.json').version")
+            BASE="${BASE%%-*}"
+            N=1
+            while git rev-parse -q --verify "refs/tags/v$BASE-$CHANNEL.$N" >/dev/null; do
+              N=$((N + 1))
+            done
+            VERSION="$BASE-$CHANNEL.$N"
+            TAG="v$VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Building prerelease $VERSION (tag $TAG)"
+
+  build-windows:
+    name: Build Windows
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # electron-builder.yml uses ${version} in every artifactName, so the
+      # installers would carry the package.json version instead of the one being
+      # built. Patched in the workspace only — never committed.
+      - name: Set version
+        shell: bash
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and package
+        run: npm run build && npx electron-builder --win --publish never
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            dist/*.exe
+          retention-days: 5
+
+  build-macos:
+    name: Build macOS
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set version
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and package (arm64)
+        run: npm run build && npx electron-builder --mac --arm64 --publish never
+
+      - name: Build and package (x64)
+        run: npx electron-builder --mac --x64 --publish never
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: |
+            dist/*.dmg
+          retention-days: 5
+
+  build-linux:
+    name: Build Linux
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set version
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and package
+        run: npm run build && npx electron-builder --linux --publish never
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+          retention-days: 5
+
+  prerelease:
+    name: Create Prerelease
+    needs: [prepare, build-windows, build-macos, build-linux]
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-macos.result == 'success' || needs.build-linux.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build status summary
+        run: |
+          echo "Build Results:"
+          echo "  Windows: ${{ needs.build-windows.result }}"
+          echo "  macOS:   ${{ needs.build-macos.result }}"
+          echo "  Linux:   ${{ needs.build-linux.result }}"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f | head -50
+
+      - name: Create prerelease and upload assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This job never checks the repo out, so gh has no git remote to read
+          # the target repository from
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          CHANNEL: ${{ needs.prepare.outputs.channel }}
+          TARGET: ${{ needs.prepare.outputs.ref }}
+          PR: ${{ needs.prepare.outputs.pr }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$PR" ]; then
+            SOURCE="la PR #$PR"
+          else
+            SOURCE="\`$TARGET\`"
+          fi
+
+          NOTES="Build del canal **$CHANNEL** generada desde $SOURCE.
+
+          No es una version estable: sirve para probar cambios antes de mezclarlos en \`main\`.
+          En la app, Ajustes > Acerca de permite seguir el canal \`$CHANNEL\` al comprobar actualizaciones."
+
+          # --prerelease and no --latest, so this never displaces the stable
+          # release shown on the repo front page. --target creates the tag at
+          # the built commit when the tag does not exist yet (PR / manual runs).
+          gh release create "$TAG" \
+            --target "$TARGET" \
+            --title "SincroGitExclude $VERSION ($CHANNEL)" \
+            --notes "$NOTES" \
+            --prerelease
+
+          upload_with_retry() {
+            local file=$1
+            local max_attempts=5
+            local attempt=1
+            local delay=10
+
+            while [ $attempt -le $max_attempts ]; do
+              echo "Uploading $(basename $file) (attempt $attempt/$max_attempts)..."
+              if gh release upload "$TAG" "$file" --clobber 2>&1; then
+                echo "Uploaded $(basename $file)"
+                return 0
+              fi
+              echo "Upload failed, retrying in ${delay}s..."
+              sleep $delay
+              delay=$((delay * 2))
+              attempt=$((attempt + 1))
+            done
+            echo "Failed to upload $(basename $file)"
+            return 1
+          }
+
+          find artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \) | while read file; do
+            upload_with_retry "$file"
+            sleep 2
+          done
+
+          echo "Prerelease $TAG created!"
+
+      - name: Comment on the PR
+        if: needs.prepare.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ needs.prepare.outputs.pr }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          CHANNEL: ${{ needs.prepare.outputs.channel }}
+        run: |
+          gh pr comment "$PR" \
+            --body "Prerelease **$VERSION** (canal \`$CHANNEL\`) publicada: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
