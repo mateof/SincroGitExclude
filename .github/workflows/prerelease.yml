@@ -277,6 +277,9 @@ jobs:
       - name: Create prerelease and upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This job never checks the repo out, so gh has no git remote to read
+          # the target repository from
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
           CHANNEL: ${{ needs.prepare.outputs.channel }}
@@ -337,10 +340,11 @@ jobs:
         if: needs.prepare.outputs.pr != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PR: ${{ needs.prepare.outputs.pr }}
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
           CHANNEL: ${{ needs.prepare.outputs.channel }}
         run: |
-          gh pr comment "$PR" -R "$GITHUB_REPOSITORY" \
+          gh pr comment "$PR" \
             --body "Prerelease **$VERSION** (canal \`$CHANNEL\`) publicada: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
