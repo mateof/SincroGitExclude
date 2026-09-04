@@ -10,10 +10,16 @@ import {
   EyeOff,
   RefreshCw,
   AlertTriangle,
-  Users
+  Users,
+  Save,
+  X
 } from 'lucide-react'
 import type { IpcResult } from '@/types'
 import { useUIStore } from '@/stores/ui-store'
+import { copyText } from '@/lib/clipboard'
+
+const MIN_TOKEN_LENGTH = 8
+const MAX_TOKEN_LENGTH = 128
 
 interface ServerState {
   enabled: boolean
@@ -37,6 +43,9 @@ export function WebServerSettings() {
   const [error, setError] = useState<string | null>(null)
   const [showToken, setShowToken] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  // null while the field mirrors the saved token; a string once the user edits
+  // it, so the 5s poll cannot overwrite what is being typed
+  const [tokenDraft, setTokenDraft] = useState<string | null>(null)
 
   const apply = useCallback((result: IpcResult<ServerState>) => {
     if (result?.success && result.data) {
@@ -66,9 +75,33 @@ export function WebServerSettings() {
   }
 
   const copy = async (value: string, key: string): Promise<void> => {
-    await navigator.clipboard.writeText(value)
+    if (!(await copyText(value))) {
+      setError(t('webServer.copyError'))
+      return
+    }
+    setError(null)
     setCopied(key)
     setTimeout(() => setCopied(null), 1500)
+  }
+
+  const saveToken = async (): Promise<void> => {
+    if (tokenDraft === null || !state || tokenDraft === state.token) return
+    const token = tokenDraft.trim()
+    if (
+      token.length < MIN_TOKEN_LENGTH ||
+      token.length > MAX_TOKEN_LENGTH ||
+      /\s/.test(token)
+    ) {
+      setError(t('webServer.tokenInvalid', { min: MIN_TOKEN_LENGTH, max: MAX_TOKEN_LENGTH }))
+      return
+    }
+    setBusy(true)
+    const result = await window.api.invoke<IpcResult<ServerState>>('server:set-token', token)
+    apply(result)
+    setBusy(false)
+    // Keep the draft on the screen when the save was rejected, so the value is
+    // not lost and the error explains itself
+    if (result?.success) setTokenDraft(null)
   }
 
   const commitPort = async (): Promise<void> => {
@@ -151,9 +184,42 @@ export function WebServerSettings() {
           {t('webServer.token')}
         </label>
         <div className="flex items-center gap-1.5">
-          <span className="flex-1 px-2.5 py-1.5 text-xs font-mono bg-secondary border border-border rounded-md truncate">
-            {showToken ? state.token : '•'.repeat(24)}
-          </span>
+          <input
+            type={showToken ? 'text' : 'password'}
+            value={tokenDraft ?? state.token}
+            disabled={busy || isWebMode}
+            spellCheck={false}
+            autoComplete="off"
+            maxLength={MAX_TOKEN_LENGTH}
+            onChange={(e) => setTokenDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveToken()
+              if (e.key === 'Escape') setTokenDraft(null)
+            }}
+            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs font-mono bg-secondary border border-border rounded-md outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+          />
+          {tokenDraft !== null && tokenDraft !== state.token ? (
+            <>
+              <button
+                onClick={saveToken}
+                disabled={busy}
+                className="p-1.5 border border-border rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                title={t('webServer.saveToken')}
+              >
+                <Save className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => {
+                  setTokenDraft(null)
+                  setError(null)
+                }}
+                className="p-1.5 border border-border rounded-md hover:bg-secondary transition-colors"
+                title={t('webServer.cancelToken')}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </>
+          ) : null}
           <button
             onClick={() => setShowToken((v) => !v)}
             className="p-1.5 border border-border rounded-md hover:bg-secondary transition-colors"
@@ -173,7 +239,10 @@ export function WebServerSettings() {
             )}
           </button>
           <button
-            onClick={() => run('server:regenerate-token')}
+            onClick={() => {
+              setTokenDraft(null)
+              run('server:regenerate-token')
+            }}
             disabled={busy || isWebMode}
             className="p-1.5 border border-border rounded-md hover:bg-secondary disabled:opacity-40 transition-colors"
             title={t('webServer.regenerate')}
@@ -181,7 +250,7 @@ export function WebServerSettings() {
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
-        <p className="text-[11px] text-muted-foreground mt-1.5">{t('webServer.tokenHint')}</p>
+        <p className="text-[11px] text-muted-foreground mt-1.5">{t('webServer.tokenHint', { min: MIN_TOKEN_LENGTH })}</p>
       </div>
 
       {/* Port + bind */}

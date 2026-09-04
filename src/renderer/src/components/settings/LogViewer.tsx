@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { IpcResult } from '@/types'
+import { copyText } from '@/lib/clipboard'
 import {
   X,
   RefreshCw,
@@ -161,13 +162,13 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
   }, [loading, filtered.length, scrollToBottom])
 
   const handleCopyAll = async () => {
-    await navigator.clipboard.writeText(filtered.map(formatEntry).join('\n'))
+    await copyText(filtered.map(formatEntry).join('\n'))
     setCopiedAll(true)
     setTimeout(() => setCopiedAll(false), 2000)
   }
 
   const handleCopyEntry = async (entry: LogEntry, index: number) => {
-    await navigator.clipboard.writeText(formatEntry(entry))
+    await copyText(formatEntry(entry))
     setCopiedIndex(index)
     setTimeout(() => setCopiedIndex((current) => (current === index ? null : current)), 2000)
   }

@@ -253,6 +253,16 @@ Choose between **English** and **Spanish** (Espanol).
 - **Automatic** (default): When creating a deployment, the file path is automatically added to `.git/info/exclude` in the target repository.
 - **Manual**: You must add the exclusion manually from the deployment card.
 
+### Web Access
+
+Serves the application over HTTP so you can use it from a browser on another machine. Everything still runs on the computer hosting the app; the browser is only the interface.
+
+- **Port**: The port the server listens on (8765 by default).
+- **Allow access from other machines**: Off by default, so only this computer can connect. Turning it on exposes the app to your local network — anyone with the token can read and write files and run git on the host machine.
+- **Access token**: Asked for the first time you open the address in a browser. You can type your own instead of the generated one (at least 8 characters, no spaces) and save it, or regenerate a random one. Either way, every open browser session is signed out.
+
+The server can only be started, stopped or reconfigured from the desktop window: doing it from a browser would cut off that browser's own connection.
+
 ### Application Data
 
 View and change where the application stores its data:

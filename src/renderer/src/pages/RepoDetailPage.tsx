@@ -8,6 +8,7 @@ import { RepoDeploymentGroup } from '@/components/repos/RepoDeploymentGroup'
 import { ExcludeEntryList } from '@/components/repos/ExcludeEntryList'
 import { AddExcludeDialog } from '@/components/repos/AddExcludeDialog'
 import { RemoveExcludeConfirmDialog } from '@/components/repos/RemoveExcludeConfirmDialog'
+import { copyText } from '@/lib/clipboard'
 import {
   FolderGit2,
   FolderOpen,
@@ -103,7 +104,7 @@ export function RepoDetailPage({ repoId }: RepoDetailPageProps) {
   }
 
   const handleCopyPath = async () => {
-    await navigator.clipboard.writeText(repo.path)
+    if (!(await copyText(repo.path))) return
     setPathCopied(true)
     setTimeout(() => setPathCopied(false), 1500)
   }

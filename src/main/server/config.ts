@@ -25,8 +25,31 @@ export interface ServerConfig {
   salt: string
 }
 
+export const MIN_TOKEN_LENGTH = 8
+export const MAX_TOKEN_LENGTH = 128
+
 function generateToken(): string {
   return randomBytes(24).toString('base64url')
+}
+
+/**
+ * Rules for a hand-picked token. Whitespace is rejected because the token is
+ * typed into a single-line field and a stray leading space would be impossible
+ * to spot; control characters because they cannot be typed back at all.
+ */
+export function validateToken(value: unknown): string | null {
+  if (typeof value !== 'string') return 'Token invalido'
+  if (value.length < MIN_TOKEN_LENGTH) {
+    return `El token debe tener al menos ${MIN_TOKEN_LENGTH} caracteres`
+  }
+  if (value.length > MAX_TOKEN_LENGTH) {
+    return `El token no puede superar los ${MAX_TOKEN_LENGTH} caracteres`
+  }
+  // eslint-disable-next-line no-control-regex
+  if (/\s/.test(value) || /[\u0000-\u001f\u007f]/.test(value)) {
+    return 'El token no puede contener espacios ni caracteres de control'
+  }
+  return null
 }
 
 function createDefaults(): ServerConfig {
@@ -78,6 +101,14 @@ export function writeServerConfig(patch: Partial<ServerConfig>): ServerConfig {
 /** Regenerating the token invalidates every session cookie already issued. */
 export function regenerateToken(): ServerConfig {
   return writeServerConfig({ token: generateToken(), salt: randomBytes(16).toString('hex') })
+}
+
+/**
+ * Replaces the token with a hand-picked one. The salt is rotated too, so open
+ * sessions die exactly as they do on a regeneration.
+ */
+export function setToken(token: string): ServerConfig {
+  return writeServerConfig({ token, salt: randomBytes(16).toString('hex') })
 }
 
 /**

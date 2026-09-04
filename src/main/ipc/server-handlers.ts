@@ -3,7 +3,14 @@ import log from 'electron-log'
 import { describeError } from '../utils/errors'
 import { isWebEvent } from './channel-registry'
 import { webServer } from '../server/http-server'
-import { DEFAULT_PORT, readServerConfig, regenerateToken, writeServerConfig } from '../server/config'
+import {
+  DEFAULT_PORT,
+  readServerConfig,
+  regenerateToken,
+  setToken,
+  validateToken,
+  writeServerConfig
+} from '../server/config'
 
 function currentState(): Record<string, unknown> {
   const config = readServerConfig()
@@ -96,6 +103,30 @@ export function registerServerHandlers(): void {
         await webServer.start()
       }
 
+      return { success: true, data: currentState() }
+    } catch (error) {
+      return { success: false, error: describeError(error) }
+    }
+  })
+
+  /**
+   * Replaces the token with one the user typed. Like a regeneration, it signs
+   * out every open session, so it is refused over HTTP: a browser client would
+   * be locking itself out mid-request.
+   */
+  ipcMain.handle('server:set-token', async (event, token: string) => {
+    if (isWebEvent(event)) {
+      return {
+        success: false,
+        error: 'El token solo se puede cambiar desde la ventana de escritorio.'
+      }
+    }
+    try {
+      const problem = validateToken(token)
+      if (problem) return { success: false, error: problem }
+
+      setToken(token)
+      log.info('Web server access token changed - existing sessions invalidated')
       return { success: true, data: currentState() }
     } catch (error) {
       return { success: false, error: describeError(error) }
