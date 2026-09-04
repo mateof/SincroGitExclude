@@ -48,6 +48,17 @@ To fix this, run the following command after installing:
 xattr -cr /Applications/SincroGitExclude.app
 ```
 
+### Prereleases
+
+Test builds are published as GitHub prereleases on two channels:
+
+- **beta** — release candidates (`v1.21.0-beta.1`)
+- **dev** — builds of a pull request, before it is merged (`v1.21.0-dev.3`)
+
+To publish one, add the `dev-release` or `beta-release` label to a pull request: the [Prerelease](.github/workflows/prerelease.yml) workflow builds that PR's head for Windows, macOS and Linux, publishes the prerelease and comments on the PR with the link. It can also be started from **Actions > Prerelease** (by PR number, branch or sha), or by pushing a `v*-dev*` / `v*-beta*` tag.
+
+Prereleases are never marked as latest, so the stable release keeps its place on the repository front page. In the app, **Settings > About > Channel** selects which of these channels the update checker follows.
+
 ## Requirements
 
 - Node.js 18+

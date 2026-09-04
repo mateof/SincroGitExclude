@@ -277,3 +277,15 @@ The application will restart after changing the data location.
 ### About
 
 Shows the application version and a link to the GitHub repository. The update checker automatically verifies if a newer version is available.
+
+#### Update channel
+
+Choose which releases the update checker looks at. Each channel also includes the ones above it:
+
+- **Stable** (default): Only final releases.
+- **Beta**: Stable releases plus release candidates.
+- **Dev**: Everything, including the test builds published from a pull request before it is merged.
+
+Prereleases carry a version such as `1.21.0-beta.1` or `1.21.0-dev.3` and are meant for testing: install them only if you are happy to hit the occasional bug. A build installed from a prerelease follows its own channel by default, so a dev install keeps being offered dev builds.
+
+Updates are not installed automatically: the checker links to the release page so you can download the installer yourself.

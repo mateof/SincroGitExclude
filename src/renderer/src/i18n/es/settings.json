@@ -111,7 +111,16 @@
     "download": "Descargar",
     "upToDate": "Actualizado ({{version}})",
     "checkAgain": "Comprobar de nuevo",
-    "checkError": "No se pudo comprobar actualizaciones. Pulsa para reintentar."
+    "checkError": "No se pudo comprobar actualizaciones. Pulsa para reintentar.",
+    "channel": {
+      "label": "Canal",
+      "stable": "Estable",
+      "beta": "Beta",
+      "dev": "Dev",
+      "stableHint": "Solo versiones finales. Recomendado.",
+      "betaHint": "Candidatas a version final antes de pasar a estable.",
+      "devHint": "Builds de prueba publicadas desde una pull request. Pueden ser inestables."
+    }
   },
   "webServer": {
     "label": "Acceso web",

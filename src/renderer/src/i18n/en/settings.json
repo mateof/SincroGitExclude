@@ -111,7 +111,16 @@
     "download": "Download",
     "upToDate": "Up to date ({{version}})",
     "checkAgain": "Check again",
-    "checkError": "Could not check for updates. Click to retry."
+    "checkError": "Could not check for updates. Click to retry.",
+    "channel": {
+      "label": "Channel",
+      "stable": "Stable",
+      "beta": "Beta",
+      "dev": "Dev",
+      "stableHint": "Only final releases. Recommended.",
+      "betaHint": "Release candidates before they go stable.",
+      "devHint": "Test builds published from a pull request. May be unstable."
+    }
   },
   "webServer": {
     "label": "Web access",
