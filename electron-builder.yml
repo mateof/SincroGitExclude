@@ -15,6 +15,10 @@ mac:
   target:
     - dmg
   category: public.app-category.developer-tools
+  identity: '-'
+  hardenedRuntime: false
+  extendInfo:
+    NSLocalNetworkUsageDescription: SincroGitExclude connects to git remotes on your local network, such as a repository on a NAS.
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
 linux:
