@@ -18,6 +18,7 @@ import {
   GitCommitHorizontal,
   Loader2
 } from 'lucide-react'
+import { usePreferencesStore } from '@/stores/preferences-store'
 
 interface ResolveResult {
   fullPath: string
@@ -215,7 +216,7 @@ export function PartialDeployDialog({
     setError('')
 
     const tagIds = selectedTagIds.length > 0 ? selectedTagIds : undefined
-    const autoExclude = localStorage.getItem('autoExclude') !== 'false'
+    const autoExclude = usePreferencesStore.getState().preferences.autoExclude
 
     try {
       let file

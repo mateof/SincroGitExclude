@@ -66,18 +66,12 @@ export function CommitHistory({ deployment, onCheckout, onViewDiff, onViewFile, 
   }
 
   const loadSnapshotCounts = async (commitList: CommitInfo[]) => {
-    const counts = new Map<string, number>()
-    for (const commit of commitList) {
-      const result = await window.api.invoke<IpcResult<number>>(
-        'snapshots:count-for-commit',
-        deployment.id,
-        commit.hash
-      )
-      if (result.success && result.data !== undefined) {
-        counts.set(commit.hash, result.data)
-      }
-    }
-    setSnapshotCounts(new Map(counts))
+    const result = await window.api.invoke<IpcResult<Record<string, number>>>(
+      'snapshots:counts',
+      deployment.id
+    )
+    const byHash = result.success && result.data ? result.data : {}
+    setSnapshotCounts(new Map(commitList.map((c) => [c.hash, byHash[c.hash] ?? 0])))
   }
 
   const loadOrphanCount = async () => {

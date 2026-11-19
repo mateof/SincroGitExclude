@@ -72,7 +72,7 @@ export const useDeploymentStore = create<DeploymentStore>((set, get) => ({
       const deployments = result.data.map(mapDeploymentRow)
 
       // Check exclude status and changes for each active deployment
-      for (const d of deployments) {
+      await Promise.all(deployments.map(async (d) => {
         if (d.isActive) {
           const [excludeResult, changesResult, globalExcludeResult, existsResult, gitignoreResult] = await Promise.all([
             window.api.invoke<IpcResult<boolean>>('deployments:check-exclude', d.id),
@@ -88,7 +88,7 @@ export const useDeploymentStore = create<DeploymentStore>((set, get) => ({
           d.isInGitIgnore = gitignoreResult.success ? gitignoreResult.data : undefined
         }
         d.fullPath = `${d.repoPath}/${d.fileRelativePath}`.replace(/\\/g, '/')
-      }
+      }))
 
       set({ deployments })
     }

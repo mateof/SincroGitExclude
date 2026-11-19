@@ -5,6 +5,7 @@ import { useFileStore } from '@/stores/file-store'
 import type { CommitInfo, Deployment, IpcResult } from '@/types'
 import { LogViewer } from '@/components/settings/LogViewer'
 import { X, FolderOpen, FolderGit2, AlertCircle, FileSearch, ScrollText } from 'lucide-react'
+import { usePreferencesStore } from '@/stores/preferences-store'
 
 interface ResolveResult {
   fullPath: string
@@ -12,6 +13,18 @@ interface ResolveResult {
   repoPath: string | null
   relativePath: string | null
 }
+
+interface RemoteSource {
+  ref: string
+  branch: string
+  machineId: string
+  machineName: string
+  repoPath: string
+  relativePath: string
+  description: string | null
+}
+
+const REMOTE_PREFIX = 'remote:'
 
 interface DeploymentCreateDialogProps {
   open: boolean
@@ -47,6 +60,7 @@ export function DeploymentCreateDialog({
   const [commits, setCommits] = useState<CommitInfo[]>([])
   const [selectedCommitHash, setSelectedCommitHash] = useState('')
   const [loadingCommits, setLoadingCommits] = useState(false)
+  const [remoteSources, setRemoteSources] = useState<RemoteSource[]>([])
 
   // Filter deployments for the same file
   const fileDeployments = deployments.filter((d) => d.fileId === fileId)
@@ -60,6 +74,10 @@ export function DeploymentCreateDialog({
       setSelectedDeploymentId(sourceDeploymentId || '')
       setSelectedCommitHash(sourceCommitHash || '')
       setCommits([])
+      setRemoteSources([])
+      window.api
+        .invoke<IpcResult<RemoteSource[]>>('sync:remote-sources', fileId)
+        .then((result) => setRemoteSources(result.success && result.data ? result.data : []))
 
       if (sourceDeploymentId) {
         loadCommitsForDeployment(sourceDeploymentId, sourceCommitHash)
@@ -75,10 +93,13 @@ export function DeploymentCreateDialog({
     }
 
     setLoadingCommits(true)
-    const result = await window.api.invoke<IpcResult<CommitInfo[]>>(
-      'commits:list',
-      deploymentId
-    )
+    const result = deploymentId.startsWith(REMOTE_PREFIX)
+      ? await window.api.invoke<IpcResult<CommitInfo[]>>(
+          'sync:remote-commits',
+          fileId,
+          deploymentId.slice(REMOTE_PREFIX.length)
+        )
+      : await window.api.invoke<IpcResult<CommitInfo[]>>('commits:list', deploymentId)
     if (result.success && result.data) {
       setCommits(result.data)
       // Pre-select the specified commit, or the latest one
@@ -113,7 +134,9 @@ export function DeploymentCreateDialog({
 
   // Resolve source branch from selected deployment
   const sourceDeployment = fileDeployments.find((d) => d.id === selectedDeploymentId)
-  const sourceBranch = sourceDeployment?.branchName || undefined
+  const sourceBranch = selectedDeploymentId.startsWith(REMOTE_PREFIX)
+    ? selectedDeploymentId.slice(REMOTE_PREFIX.length)
+    : sourceDeployment?.branchName || undefined
   const sourceCommit = selectedCommitHash || undefined
 
   const handleSelectFolder = async () => {
@@ -184,7 +207,7 @@ export function DeploymentCreateDialog({
     setLoading(true)
     setError('')
 
-    const autoExclude = localStorage.getItem('autoExclude') !== 'false'
+    const autoExclude = usePreferencesStore.getState().preferences.autoExclude
     const result = await createDeployment(
       fileId,
       repoPath,
@@ -237,7 +260,7 @@ export function DeploymentCreateDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Source deployment selector */}
-          {fileDeployments.length > 0 && (
+          {(fileDeployments.length > 0 || remoteSources.length > 0) && (
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                 {t('fields.sourceDeployment')}{' '}
@@ -256,6 +279,18 @@ export function DeploymentCreateDialog({
                     {formatDeploymentLabel(d)}
                   </option>
                 ))}
+                {remoteSources.length > 0 && (
+                  <optgroup label={t('fields.remoteSources')}>
+                    {remoteSources.map((r) => (
+                      <option key={r.ref} value={`${REMOTE_PREFIX}${r.ref}`}>
+                        {t('fields.remoteSourceLabel', {
+                          machine: r.machineName,
+                          path: `${r.repoPath.split('/').slice(-2).join('/')} / ${r.relativePath}`
+                        })}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
               <p className="text-[10px] text-muted-foreground mt-1">
                 {t('fields.sourceDeploymentHint')}

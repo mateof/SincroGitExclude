@@ -263,6 +263,25 @@ Serves the application over HTTP so you can use it from a browser on another mac
 
 The server can only be started, stopped or reconfigured from the desktop window: doing it from a browser would cut off that browser's own connection.
 
+### MCP Access for AI Assistants
+
+Lets AI assistants (Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, opencode, Claude Desktop...) use the app through MCP while it is open. Start the server, pick your assistant under **Connect a client** and copy the command or configuration: the URL and token are already in it. **Read only** hides every tool that changes something. See [mcp.md](mcp.md) for the full list of tools.
+
+### Remote Sync
+
+Pushes and pulls every managed file, with its full history, tags and metadata, to a single git repository. Use it to back up your data or to share it between computers.
+
+- **Remote repository URL**: Any git URL this computer can reach (`git@github.com:you/sge-data.git`, an HTTPS URL, or a bare repository on a NAS). Authentication uses this computer's git setup (SSH keys or a credential helper); the app never stores passwords or tokens. A private, empty repository dedicated to this is recommended.
+- **This machine's name**: Shown to other computers when they pick one of your deployments as a source.
+- **Push**: Uploads the branches and tags of every file under `sge/files/<id>/` and the shared metadata under `sge/meta`. Files with nothing new are skipped without a network round trip. If another computer has pushed history that this one has not seen, the branch is reported as a conflict instead of being overwritten.
+- **Pull**: Creates the files that only exist in the remote, updates names, aliases, tags and ignore patterns when the remote copy is newer, and fast-forwards shared branches. Branches that belong to deployments on this computer are never moved.
+
+Deployments belong to each computer, because their paths only make sense there. After a pull, the deployments of other computers appear under **Other machines** in the source selector of the **New Deployment** dialog, together with their commits, so you can start a deployment from them.
+
+Deleting a file is synced as a deletion record: the file disappears from the remote metadata and does not come back on the next pull. Other computers keep their copy and list it in the pull report so you can delete it there if you want.
+
+See [storage.md](storage.md) for how local storage, remote sync and ZIP export fit together, how to move from a data folder shared on a network drive, and how to read the remote with plain git.
+
 ### Application Data
 
 View and change where the application stores its data:

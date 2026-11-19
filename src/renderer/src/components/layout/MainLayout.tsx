@@ -4,6 +4,7 @@ import { useFileStore } from '@/stores/file-store'
 import { useWatcherStore } from '@/stores/watcher-store'
 import { useDeploymentStore } from '@/stores/deployment-store'
 import { useRepoStore } from '@/stores/repo-store'
+import { usePreferencesStore, type Preferences } from '@/stores/preferences-store'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -39,30 +40,51 @@ export function MainLayout() {
     }
   }, [repoExists, currentView, selectedRepoId, repos.length])
 
-  // Sync snapshot enabled state to main process on mount
   useEffect(() => {
-    const enabled = localStorage.getItem('snapshotsEnabled') !== 'false'
-    window.api.invoke('snapshots:set-enabled', enabled)
-  }, [])
+    usePreferencesStore.getState().load()
+    const unsubPreferences = window.api.on('preferences:changed', (preferences: unknown) => {
+      usePreferencesStore.getState().receive(preferences as Preferences)
+    })
 
-  // Restore verbose logging preference on mount
-  useEffect(() => {
-    const verbose = localStorage.getItem('logVerbose') === 'true'
-    if (verbose) window.api.invoke('logs:set-verbose', true)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const unsubData = window.api.on('app:data-changed', () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        const { selectedFileId } = useUIStore.getState()
+        useFileStore.getState().loadFiles()
+        useFileStore.getState().loadTags()
+        useRepoStore.getState().loadRepos()
+        if (selectedFileId) useDeploymentStore.getState().loadDeployments(selectedFileId)
+        useWatcherStore.getState().refreshChangedFileIds()
+      }, 300)
+    })
+
+    return () => {
+      if (timer) clearTimeout(timer)
+      unsubPreferences()
+      unsubData()
+    }
   }, [])
 
   // Subscribe to watcher events from main process
   useEffect(() => {
-    const unsubChange = window.api.on('watcher:file-changed', async (deploymentId: unknown) => {
-      const id = deploymentId as string
-      markChanged(id)
-      // Verify actual content diff via deployment store (updates hasChanges in-place)
-      const hasRealChanges = await useDeploymentStore.getState().checkChanges(id)
-      if (!hasRealChanges) {
-        clearChanged(id)
+    const unsubChange = window.api.on(
+      'watcher:file-changed',
+      async (deploymentId: unknown, computed?: unknown) => {
+        const id = deploymentId as string
+        let hasRealChanges: boolean
+        if (typeof computed === 'boolean') {
+          hasRealChanges = computed
+          useDeploymentStore.getState().updateDeploymentStatus(id, { hasChanges: computed })
+        } else {
+          markChanged(id)
+          hasRealChanges = await useDeploymentStore.getState().checkChanges(id)
+        }
+        if (hasRealChanges) markChanged(id)
+        else clearChanged(id)
+        refreshChangedFileIds()
       }
-      refreshChangedFileIds()
-    })
+    )
     const unsubDelete = window.api.on('watcher:file-deleted', (deploymentId: unknown) => {
       const id = deploymentId as string
       markDeleted(id)

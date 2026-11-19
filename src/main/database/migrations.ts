@@ -162,6 +162,19 @@ const migrations: Migration[] = [
       SELECT lower(hex(randomblob(16))), repo_path
       FROM (SELECT DISTINCT repo_path FROM deployments);
     `
+  },
+  {
+    version: 11,
+    description: 'Remote sync: metadata timestamp on files and tombstones for deleted files',
+    up: `
+      ALTER TABLE files ADD COLUMN meta_updated_at TEXT;
+      UPDATE files SET meta_updated_at = updated_at;
+
+      CREATE TABLE IF NOT EXISTS sync_tombstones (
+        file_id TEXT PRIMARY KEY,
+        deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `
   }
 ]
 

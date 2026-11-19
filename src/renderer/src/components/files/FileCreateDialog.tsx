@@ -6,6 +6,7 @@ import { useUIStore } from '@/stores/ui-store'
 import type { IpcResult } from '@/types'
 import { TagSelector } from './TagSelector'
 import { X, Search, FolderGit2, CheckCircle2, Download } from 'lucide-react'
+import { usePreferencesStore } from '@/stores/preferences-store'
 
 interface SelectFileResult {
   type: 'file'
@@ -146,7 +147,7 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
 
       if (file) {
         if (bundle.repoPath && bundle.baseRelativePath) {
-          const autoExclude = localStorage.getItem('autoExclude') !== 'false'
+          const autoExclude = usePreferencesStore.getState().preferences.autoExclude
           const result = await createDeployment(
             file.id,
             bundle.repoPath,
@@ -172,7 +173,7 @@ export function FileCreateDialog({ open, onOpenChange }: FileCreateDialogProps) 
       if (file && selection?.type === 'file') {
         const single = selection as SelectFileResult
         if (single.repoPath && single.fileRelativePath) {
-          const autoExclude = localStorage.getItem('autoExclude') !== 'false'
+          const autoExclude = usePreferencesStore.getState().preferences.autoExclude
           const result = await createDeployment(
             file.id,
             single.repoPath,

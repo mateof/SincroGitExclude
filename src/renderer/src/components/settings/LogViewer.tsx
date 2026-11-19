@@ -13,6 +13,7 @@ import {
   Check,
   ArrowDown
 } from 'lucide-react'
+import { usePreferencesStore } from '@/stores/preferences-store'
 
 interface LogEntry {
   timestamp: string
@@ -114,8 +115,7 @@ export function LogViewer({ open, onOpenChange }: LogViewerProps) {
 
   const handleVerboseChange = async (value: boolean) => {
     setVerbose(value)
-    localStorage.setItem('logVerbose', String(value))
-    await window.api.invoke('logs:set-verbose', value)
+    await usePreferencesStore.getState().update({ verboseLogs: value })
   }
 
   const handleClear = async () => {

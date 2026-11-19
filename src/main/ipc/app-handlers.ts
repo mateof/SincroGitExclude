@@ -54,17 +54,17 @@ function findGitRoot(filePath: string): string | null {
  */
 function listFilesRecursive(dirPath: string): string[] {
   const results: string[] = []
-  const entries = readdirSync(dirPath, { withFileTypes: true })
-  for (const entry of entries) {
-    if (entry.name === '.git') continue
-    const fullPath = join(dirPath, entry.name)
-    if (entry.isDirectory()) {
-      results.push(...listFilesRecursive(fullPath))
-    } else {
-      results.push(fullPath)
+  const pending = [dirPath]
+  while (pending.length > 0) {
+    const current = pending.pop()!
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      if (entry.name === '.git') continue
+      const fullPath = join(current, entry.name)
+      if (entry.isDirectory()) pending.push(fullPath)
+      else results.push(fullPath)
     }
   }
-  return results
+  return results.sort()
 }
 
 /**

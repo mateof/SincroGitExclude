@@ -13,7 +13,9 @@
     "sourceDeployment": "Despliegue de origen",
     "sourceDeploymentHint": "Selecciona un despliegue existente como origen",
     "noSource": "Ninguno (empezar nuevo)",
-    "sourceCommitHint": "Selecciona un commit especifico"
+    "sourceCommitHint": "Selecciona un commit especifico",
+    "remoteSources": "Otras máquinas",
+    "remoteSourceLabel": "{{machine}} · {{path}}"
   },
   "status": {
     "active": "Activo",

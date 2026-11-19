@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync, copyFileSync } from 'fs'
 import { FILES_DIR } from '../app-paths'
 import { getDb } from '../database/connection'
 import { GitService } from '../git/git-service'
+import { changeStatus } from './change-status'
 import log from 'electron-log'
 
 export interface ManagedFileRow {
@@ -101,6 +102,7 @@ export class FileService {
     if (fields.length === 0) return this.getFile(id)!
 
     fields.push("updated_at = datetime('now')")
+    fields.push("meta_updated_at = datetime('now')")
     values.push(id)
 
     getDb()
@@ -114,6 +116,12 @@ export class FileService {
   async deleteFile(id: string): Promise<void> {
     // Delete from DB (cascade will delete deployments and file_tags)
     getDb().prepare('DELETE FROM files WHERE id = ?').run(id)
+    getDb()
+      .prepare(
+        `INSERT INTO sync_tombstones (file_id) VALUES (?)
+         ON CONFLICT(file_id) DO UPDATE SET deleted_at = datetime('now')`
+      )
+      .run(id)
 
     // Remove internal git repo directory
     const repoPath = join(FILES_DIR, id)
@@ -229,6 +237,7 @@ export class FileService {
       .prepare("UPDATE files SET updated_at = datetime('now') WHERE id = ?")
       .run(fileId)
 
+    changeStatus.invalidateAll()
     log.info(`Added ${addedPaths.length} files to bundle ${fileId}`)
     return addedPaths
   }
@@ -285,6 +294,7 @@ export class FileService {
       .prepare("UPDATE files SET updated_at = datetime('now') WHERE id = ?")
       .run(fileId)
 
+    changeStatus.invalidateAll()
     log.info(`Removed ${removed.length} files from bundle ${fileId}${deleteFromDisk ? ' and all deployments' : ''}`)
     return removed
   }
@@ -365,21 +375,22 @@ export class FileService {
     await this.gitService.initRepo(repoPath)
 
     // Read files from source commit and write to new repo
+    const contents = await this.gitService.readFiles(sourceRepoPath, commitHash, selectedFiles)
+    const contentOf = (relPath: string): Buffer => {
+      const content = contents.get(relPath)
+      if (!content) throw new Error(`File not found in commit ${commitHash.substring(0, 7)}: ${relPath}`)
+      return content
+    }
+
     if (isBundle) {
       for (const relPath of selectedFiles) {
-        const content = await this.gitService.getFileAtCommit(sourceRepoPath, commitHash, relPath)
         const destPath = join(repoPath, relPath)
         mkdirSync(dirname(destPath), { recursive: true })
-        writeFileSync(destPath, content, 'utf-8')
+        writeFileSync(destPath, contentOf(relPath))
       }
       await this.gitService.addAllAndCommit(repoPath, 'Initial bundle from commit')
     } else {
-      const content = await this.gitService.getFileAtCommit(
-        sourceRepoPath,
-        commitHash,
-        selectedFiles[0]
-      )
-      writeFileSync(join(repoPath, 'content'), content, 'utf-8')
+      writeFileSync(join(repoPath, 'content'), contentOf(selectedFiles[0]))
       await this.gitService.addAndCommit(repoPath, 'content', 'Initial file from commit')
     }
 
@@ -406,8 +417,9 @@ export class FileService {
 
   setIgnorePatterns(fileId: string, patterns: string): void {
     getDb()
-      .prepare('UPDATE files SET ignore_patterns = ? WHERE id = ?')
+      .prepare("UPDATE files SET ignore_patterns = ?, meta_updated_at = datetime('now') WHERE id = ?")
       .run(patterns, fileId)
+    changeStatus.invalidateAll()
     log.info(`Updated ignore patterns for ${fileId}`)
   }
 
@@ -457,6 +469,7 @@ export class FileService {
       for (const tagId of tagIds) {
         insert.run(fileId, tagId)
       }
+      db.prepare("UPDATE files SET meta_updated_at = datetime('now') WHERE id = ?").run(fileId)
     })
     transaction()
     log.info(`Set ${tagIds.length} tags for file ${fileId}`)

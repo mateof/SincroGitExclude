@@ -31,6 +31,8 @@ SincroGitExclude solves this by creating an internal git repository for each man
 - **Diffs**: View differences between versions or uncommitted changes
 - **Source deployments**: When creating a new deployment, select an existing deployment and a specific commit as the starting point
 - **Tags**: Organize files with colored labels
+- **Remote sync**: Push and pull all managed files, their history and metadata to a single git repository, and start deployments from other machines' versions
+- **MCP access**: Let AI assistants (Claude Code, Codex, Gemini CLI, Cursor, Copilot...) manage files, deployments, history, sync and settings, with ready-to-paste setup for each client
 - **Export/Import**: Export and import all data as a ZIP archive
 - **Bilingual**: UI available in English and Spanish
 
@@ -104,7 +106,7 @@ npm run build:unpack
 
 ## Documentation
 
-See the [User Manual](DOC/user-manual.md) for detailed usage instructions.
+See the [User Manual](DOC/user-manual.md) for detailed usage instructions, [Storage and sync](DOC/storage.md) for where data lives and how remote sync works, and [MCP access](DOC/mcp.md) for AI assistants.
 
 ## License
 

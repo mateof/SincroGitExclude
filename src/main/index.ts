@@ -15,6 +15,12 @@ import { ExportService } from './services/export-service'
 import { ImportService } from './services/import-service'
 import { SnapshotService } from './services/snapshot-service'
 import { RepoService } from './services/repo-service'
+import { ignorePatternsOf } from './services/deployment-context'
+import { SyncService } from './sync/sync-service'
+import { mcpServer } from './mcp/mcp-server'
+import { readMcpConfig } from './mcp/mcp-config'
+import { addEventSink } from './events'
+import { readPreferences, type Preferences } from './preferences'
 import { registerAllHandlers } from './ipc/register-all'
 import { webServer } from './server/http-server'
 import { readServerConfig } from './server/config'
@@ -87,8 +93,18 @@ app.whenReady().then(async () => {
   const importService = new ImportService(gitExcludeService, watcherService)
   snapshotService = new SnapshotService(gitService)
   snapshotService.setDeploymentService(deploymentService)
-  watcherService.onFileChange((id, path) => snapshotService.onFileChanged(id, path))
+  watcherService.onFileChange((id, paths) => snapshotService?.onFileChanged(id, paths))
+  watcherService.setPatternResolver((deploymentId) => {
+    const row = db.prepare('SELECT file_id FROM deployments WHERE id = ?').get(deploymentId) as
+      | { file_id: string }
+      | undefined
+    return row ? ignorePatternsOf(row.file_id) : []
+  })
+  watcherService.setChangeEvaluator((deploymentId) => deploymentService.checkForChanges(deploymentId))
   const repoService = new RepoService(gitService, gitExcludeService)
+  const syncService = new SyncService(gitService, (fileId) =>
+    deploymentService.restartWatchersForFile(fileId)
+  )
 
   // 3b. Apply core.fileMode=false to existing internal repos to avoid
   // false-positive "changed" detection due to file mode differences
@@ -107,6 +123,12 @@ app.whenReady().then(async () => {
     log.warn('Could not apply core.fileMode to existing repos:', err)
   }
 
+  const applyPreferences = (preferences: Preferences): void => {
+    snapshotService?.setEnabled(preferences.snapshotsEnabled)
+    log.transports.file.level = preferences.verboseLogs ? 'debug' : 'info'
+  }
+  applyPreferences(readPreferences().preferences)
+
   // 4. Register IPC handlers
   registerAllHandlers({
     fileService,
@@ -118,7 +140,9 @@ app.whenReady().then(async () => {
     exportService,
     importService,
     snapshotService,
-    repoService
+    repoService,
+    syncService,
+    applyPreferences
   })
 
   // 5. Create window
@@ -127,6 +151,8 @@ app.whenReady().then(async () => {
 
   // 5b. Browser clients get the same push events as the desktop window
   watcherService.addEmitter((channel, ...args) => webServer.broadcast(channel, ...args))
+  addEventSink((channel, ...args) => mainWindow?.webContents.send(channel, ...args))
+  addEventSink((channel, ...args) => webServer.broadcast(channel, ...args))
 
   // 6. Start watchers for active deployments
   try {
@@ -162,6 +188,14 @@ app.whenReady().then(async () => {
     // A busy port must not stop the desktop app from working
     log.error('Failed to start web server:', err)
   }
+
+  try {
+    if (readMcpConfig().enabled) {
+      await mcpServer.start()
+    }
+  } catch (err) {
+    log.error('Failed to start MCP server:', err)
+  }
 })
 
 app.on('window-all-closed', () => {
@@ -171,6 +205,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', async () => {
+  await mcpServer.stop()
   await webServer.stop()
   if (watcherService) {
     await watcherService.unwatchAll()
