@@ -5,10 +5,21 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['archiver', 'extract-zip'] })],
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: [
+          'archiver',
+          'extract-zip'
+        ]
+      })
+    ],
     build: {
       rollupOptions: {
-        external: ['better-sqlite3']
+        external: ['better-sqlite3'],
+        input: {
+          index: resolve('src/main/index.ts'),
+          'kb-embed-worker': resolve('src/main/kb/semantic/embed-worker.ts')
+        }
       }
     }
   },

@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
-import { join, dirname, basename } from 'path'
+import { join, dirname, basename, resolve } from 'path'
 import { homedir } from 'os'
 import { execFileSync } from 'child_process'
 import log from 'electron-log'
@@ -27,7 +27,18 @@ function findGitBinary(): string {
 }
 
 export class GitExcludeService {
-  private getExcludePath(repoPath: string): string {
+  getExcludePath(repoPath: string): string {
+    try {
+      const resolved = execFileSync(findGitBinary(), ['rev-parse', '--git-path', 'info/exclude'], {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        timeout: 5000,
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' }
+      }).trim()
+      if (resolved) return resolve(repoPath, resolved)
+    } catch {
+      return join(repoPath, '.git', 'info', 'exclude')
+    }
     return join(repoPath, '.git', 'info', 'exclude')
   }
 

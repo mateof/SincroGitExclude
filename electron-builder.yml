@@ -7,10 +7,17 @@ files:
   - '!src/*'
   - '!electron.vite.config.*'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!node_modules/onnxruntime-web/**'
+  - '!node_modules/sharp/**'
+  - '!node_modules/@img/**'
 npmRebuild: true
 asarUnpack:
   - 'node_modules/better-sqlite3/**'
+  - 'node_modules/onnxruntime-node/**'
 mac:
+  files:
+    - '!node_modules/onnxruntime-node/bin/napi-v*/linux/**'
+    - '!node_modules/onnxruntime-node/bin/napi-v*/win32/**'
   executableName: SincroGitExclude
   target:
     - dmg
@@ -22,6 +29,9 @@ mac:
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
 linux:
+  files:
+    - '!node_modules/onnxruntime-node/bin/napi-v*/darwin/**'
+    - '!node_modules/onnxruntime-node/bin/napi-v*/win32/**'
   executableName: sincrogitexclude
   target:
     - target: AppImage
@@ -36,6 +46,9 @@ appImage:
 deb:
   artifactName: ${name}-${version}-${arch}.${ext}
 win:
+  files:
+    - '!node_modules/onnxruntime-node/bin/napi-v*/darwin/**'
+    - '!node_modules/onnxruntime-node/bin/napi-v*/linux/**'
   executableName: SincroGitExclude
   target:
     - nsis

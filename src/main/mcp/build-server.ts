@@ -1,10 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { ToolContext } from './tools/common'
+import { canRead, type ToolContext } from './tools/common'
+import { fullGrant, type McpGrant } from './mcp-grants'
 import { registerFileTools } from './tools/files.tools'
 import { registerDeploymentTools } from './tools/deployments.tools'
 import { registerHistoryTools } from './tools/history.tools'
 import { registerRepoTools } from './tools/repos.tools'
 import { registerConfigTools } from './tools/config.tools'
+import { registerKnowledgeTools, KB_INSTRUCTIONS } from './tools/kb.tools'
 
 const INSTRUCTIONS = `SincroGitExclude versions files that must never be committed to the repositories they live in (.env, local config, secrets, helper scripts) and keeps them in sync between repositories and machines.
 
@@ -22,22 +24,30 @@ Before anything destructive (delete_*, checkout_commit, discard_changes, import_
 export interface BuildOptions {
   version: string
   readOnly: boolean
+  grant?: McpGrant
   onWrite: (tool: string) => void
   selfStatus: () => Record<string, unknown>
 }
 
+function instructionsFor(ctx: Pick<ToolContext, 'grant' | 'readOnly'>): string {
+  const parts: string[] = []
+  const probe = { ...ctx, server: null as unknown as McpServer, onWrite: () => {}, selfStatus: () => ({}) }
+  if (canRead(probe, 'sge')) parts.push(INSTRUCTIONS)
+  if (canRead(probe, 'kb')) parts.push(KB_INSTRUCTIONS)
+  if (ctx.readOnly) parts.push('This server is read only: nothing can be changed through it. Say so instead of trying.')
+  return parts.join('\n\n')
+}
+
 export function buildMcpServer(options: BuildOptions): McpServer {
+  const grant = options.grant ?? fullGrant()
   const server = new McpServer(
     { name: 'sincrogitexclude', version: options.version },
-    {
-      instructions: options.readOnly
-        ? `${INSTRUCTIONS}\n\nThis server is read only: nothing can be changed through it. Say so instead of trying.`
-        : INSTRUCTIONS
-    }
+    { instructions: instructionsFor({ grant, readOnly: options.readOnly }) }
   )
   const ctx: ToolContext = {
     server,
     readOnly: options.readOnly,
+    grant,
     onWrite: options.onWrite,
     selfStatus: options.selfStatus
   }
@@ -46,5 +56,6 @@ export function buildMcpServer(options: BuildOptions): McpServer {
   registerDeploymentTools(ctx)
   registerHistoryTools(ctx)
   registerRepoTools(ctx)
+  registerKnowledgeTools(ctx)
   return server
 }

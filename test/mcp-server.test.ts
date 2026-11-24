@@ -7,7 +7,8 @@ import { join } from 'path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { registerChannel } from '../src/main/ipc/channel-registry'
-import { createMcpApp } from '../src/main/mcp/mcp-app'
+import { createMcpApp, bearerMatches } from '../src/main/mcp/mcp-app'
+import { fullGrant } from '../src/main/mcp/mcp-grants'
 import { buildMcpServer } from '../src/main/mcp/build-server'
 import { resolveDeployTarget } from '../src/main/mcp/tools/deployments.tools'
 
@@ -57,11 +58,12 @@ beforeAll(async () => {
 
   const app = createMcpApp({
     path: '/mcp',
-    getToken: () => TOKEN,
-    buildServer: () =>
+    authenticate: (header) => (bearerMatches(header, TOKEN) ? fullGrant() : null),
+    buildServer: (grant) =>
       buildMcpServer({
         version: '0.0.0-test',
         readOnly,
+        grant,
         onWrite: (tool) => writes.push(tool),
         selfStatus: () => ({ running: true })
       })
