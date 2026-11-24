@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { existsSync, mkdirSync, readFileSync, readdirSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { createFixture, git, writeFile, type Fixture } from './helpers/git-fixture'
 import {
@@ -53,6 +53,16 @@ describe('git sync of a knowledge space', () => {
     const report = await syncGitSpace(mac, opts('mac'))
     expect(report.pulled).toEqual(['decisions/nueva.md'])
     expect(readFileSync(join(mac, 'decisions/nueva.md'), 'utf-8')).toBe('# Nueva\n')
+  })
+
+  it('syncs a cloned space on a computer without a git identity', async () => {
+    await syncGitSpace(mac, opts('mac'))
+    writeFileSync(fx.globalConfig, '[user]\n\tuseConfigOnly = true\n')
+    await cloneSpace(remote, win, 'main')
+    writeFile(win, 'decisions/nueva.md', '# Nueva\n')
+    const report = await syncGitSpace(win, opts('win'))
+    expect(report.ok).toBe(true)
+    expect(report.pushed).toEqual(['decisions/nueva.md'])
   })
 
   it('merges edits to different parts of the same note without conflict', async () => {

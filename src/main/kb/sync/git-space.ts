@@ -79,9 +79,11 @@ function ensureLines(file: string, lines: string[], header: string): boolean {
   return true
 }
 
-async function hasIdentity(root: string): Promise<boolean> {
+async function ensureIdentity(root: string): Promise<void> {
   const email = await tryGit(root, ['config', 'user.email'])
-  return email.ok && email.out.trim().length > 0
+  if (email.ok && email.out.trim().length > 0) return
+  await git(root, ['config', 'user.name', 'SincroGitExclude'])
+  await git(root, ['config', 'user.email', 'sincrogitexclude@localhost'])
 }
 
 export async function ensureRepo(root: string, remoteUrl: string, branch: string, childDirs: string[] = []): Promise<void> {
@@ -89,10 +91,7 @@ export async function ensureRepo(root: string, remoteUrl: string, branch: string
     await git(root, ['init', '-q', '-b', branch])
   }
   await git(root, ['config', 'core.quotepath', 'false'])
-  if (!(await hasIdentity(root))) {
-    await git(root, ['config', 'user.name', 'SincroGitExclude'])
-    await git(root, ['config', 'user.email', 'sincrogitexclude@localhost'])
-  }
+  await ensureIdentity(root)
   ensureLines(join(root, '.gitignore'), GITIGNORE_LINES, '# SincroGitExclude knowledge base')
   const excludePath = resolve(root, (await git(root, ['rev-parse', '--git-path', 'info/exclude'])).trim())
   if (childDirs.length > 0) {
@@ -112,6 +111,8 @@ export async function cloneSpace(remoteUrl: string, target: string, branch: stri
   mkdirSync(dirname(target), { recursive: true })
   const parent = dirname(target)
   await execGit(['clone', '-q', '--origin', REMOTE, remoteUrl, target], { cwd: parent })
+  await git(target, ['config', 'core.quotepath', 'false'])
+  await ensureIdentity(target)
   const branches = await tryGit(target, ['rev-parse', '--verify', '-q', `refs/remotes/${REMOTE}/${branch}`])
   if (branches.ok) await git(target, ['checkout', '-q', '-B', branch, `${REMOTE}/${branch}`])
 }
