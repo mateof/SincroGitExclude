@@ -307,4 +307,6 @@ Choose which releases the update checker looks at. Each channel also includes th
 
 Prereleases carry a version such as `1.21.0-beta.1` or `1.21.0-dev.3` and are meant for testing: install them only if you are happy to hit the occasional bug. A build installed from a prerelease follows its own channel by default, so a dev install keeps being offered dev builds.
 
-Updates are not installed automatically: the checker links to the release page so you can download the installer yourself.
+On macOS, **Update** downloads the new version, checks its size, SHA-256, version, processor and signature integrity, and asks you to restart to install it. If the replacement fails, the previous version is opened again. It needs the app in a folder you can write to, such as Applications, and is only available in the app window. If macOS blocks the replacement, allow SincroGitExclude in System Settings > Privacy & Security > App Management.
+
+On Windows and Linux the checker links to the release page so you can download the installer yourself.

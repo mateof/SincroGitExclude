@@ -112,6 +112,20 @@
     "upToDate": "Actualizado ({{version}})",
     "checkAgain": "Comprobar de nuevo",
     "checkError": "No se pudo comprobar actualizaciones. Pulsa para reintentar.",
+    "updateNow": "Actualizar",
+    "restart": "Reiniciar e instalar",
+    "cancel": "Cancelar",
+    "downloading": "Descargando... {{percent}} %",
+    "verifying": "Verificando la descarga...",
+    "readyHint": "Descargada y verificada. La aplicación se cerrará y se abrirá con la versión nueva.",
+    "installing": "Instalando. La aplicación se abrirá de nuevo.",
+    "failed": "No se pudo actualizar: {{error}}",
+    "installFailed": "La última instalación no se completó y sigues en la versión anterior. Si macOS la bloqueó, permite SincroGitExclude en Ajustes del Sistema > Privacidad y seguridad > Gestión de apps.",
+    "blocked": {
+      "translocated": "Para actualizar desde aquí, mueve la aplicación a la carpeta Aplicaciones y vuelve a abrirla.",
+      "disk-image": "Para actualizar desde aquí, copia la aplicación a la carpeta Aplicaciones.",
+      "not-writable": "No hay permiso para reemplazar la aplicación. Descárgala e instálala a mano."
+    },
     "channel": {
       "label": "Canal",
       "stable": "Estable",
