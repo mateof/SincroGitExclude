@@ -3,7 +3,24 @@ import { useTranslation } from 'react-i18next'
 import { X, Folder, TriangleAlert, Info, ShieldCheck, LoaderCircle, Trash2, MoveRight } from 'lucide-react'
 import { kbCall, useKbStore } from '@/stores/kb-store'
 import { useUIStore } from '@/stores/ui-store'
+import { canSendToken, defaultUsername, detectProvider, GIT_AUTH_MODES, parseRemote, tokenPageUrl, type GitAuthMode } from '../../../../shared/kb/git-remote'
 import type { KbBackend, KbBackendConfig, KbSpace, KbSpaceInput } from '../../../../shared/kb/types'
+
+interface RemoteCheck {
+  ok: boolean
+  message: string | null
+  branches: string[]
+  empty: boolean
+  publicRead: boolean | null
+}
+
+function remoteInfo(url: string | undefined) {
+  try {
+    return url ? parseRemote(url) : null
+  } catch {
+    return null
+  }
+}
 
 interface PathCheck {
   exists: boolean
@@ -55,6 +72,8 @@ export function SpaceDialog({ space, onClose }: { space?: KbSpace; onClose: () =
   const [review, setReview] = useState(space?.reviewBeforePush ?? false)
   const [shared, setShared] = useState(space?.shared ?? false)
   const [passphrase, setPassphrase] = useState('')
+  const [token, setToken] = useState('')
+  const [remote, setRemote] = useState<RemoteCheck | null>(null)
   const [probe, setProbe] = useState<{ fingerprint?: string; trusted?: boolean; ok?: boolean; branches?: string[] } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -78,6 +97,27 @@ export function SpaceDialog({ space, onClose }: { space?: KbSpace; onClose: () =
   }, [path, editing])
 
   const patch = (p: Partial<KbBackendConfig>): void => setConfig({ ...config, ...p })
+  const info = remoteInfo(config.remoteUrl)
+  const provider = detectProvider(info?.host ?? null)
+  const gitAuth: GitAuthMode = config.gitAuth ?? 'system'
+  const tokenPage = tokenPageUrl(provider, info?.origin ?? null)
+
+  const testRemote = async (): Promise<void> => {
+    setBusy(true)
+    setError(null)
+    setRemote(null)
+    try {
+      setRemote(await kbCall<RemoteCheck>('kb:test-remote', { ...config, remoteUrl: config.remoteUrl ?? '', token: token || undefined, spaceId: space?.id }))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const saveToken = async (id: string): Promise<void> => {
+    if (backend === 'git' && gitAuth === 'token' && token) await kbCall('kb:set-git-token', id, token)
+  }
 
   const payload = (): KbSpaceInput => ({
     name: name.trim() || undefined,
@@ -98,16 +138,20 @@ export function SpaceDialog({ space, onClose }: { space?: KbSpace; onClose: () =
       if (editing) {
         saved = await kbCall<KbSpace>('kb:update-space', space!.id, payload())
         if (backend === 'sftp' && passphrase) await kbCall('kb:set-sftp-passphrase', space!.id, passphrase)
+        await saveToken(space!.id)
       } else if (mode === 'clone') {
         saved = await kbCall<KbSpace>('kb:clone-space', {
+          ...config,
           remoteUrl: config.remoteUrl ?? '',
           branch: config.branch || 'main',
+          token: gitAuth === 'token' && token ? token : undefined,
           targetPath: path.trim(),
           name: name.trim() || undefined
         })
       } else {
         saved = await kbCall<KbSpace>('kb:add-space', payload())
         if (backend === 'sftp' && passphrase) await kbCall('kb:set-sftp-passphrase', saved.id, passphrase)
+        await saveToken(saved.id)
       }
       await loadSpaces()
       selectSpace(saved.id)
@@ -258,6 +302,73 @@ export function SpaceDialog({ space, onClose }: { space?: KbSpace; onClose: () =
                   <input value={config.branch ?? 'main'} onChange={(e) => patch({ branch: e.target.value })} className={input} />
                 </div>
                 <p className="col-span-2 text-[11px] text-muted-foreground">{t('dialog.gitRemoteHint')}</p>
+                <div className="col-span-2">
+                  <span className={label}>{t('dialog.gitAuth.label')}</span>
+                  <select value={gitAuth} onChange={(e) => patch({ gitAuth: e.target.value as GitAuthMode })} className={input}>
+                    {GIT_AUTH_MODES.map((m) => (
+                      <option key={m} value={m}>
+                        {t(`dialog.gitAuth.${m}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{t(`dialog.gitAuth.${gitAuth}Hint`)}</p>
+                </div>
+                {(gitAuth === 'token' || gitAuth === 'gh') && (
+                  <div className="col-span-2">
+                    <span className={label}>{t('dialog.gitAuth.username')}</span>
+                    <input value={config.gitUsername ?? ''} onChange={(e) => patch({ gitUsername: e.target.value })} className={input} placeholder={gitAuth === 'token' ? defaultUsername(provider) : 'mateof'} autoComplete="off" />
+                  </div>
+                )}
+                {gitAuth === 'token' && (
+                  <div className="col-span-2 space-y-1">
+                    <span className={label}>{t('dialog.gitAuth.tokenField')}</span>
+                    {isWebMode ? (
+                      <p className="text-[11px] text-muted-foreground">{t('dialog.gitAuth.onlyWindow')}</p>
+                    ) : (
+                      <input type="password" value={token} onChange={(e) => setToken(e.target.value)} className={input} autoComplete="off" placeholder={space?.gitCredential === 'stored' ? t('dialog.gitAuth.stored') : ''} />
+                    )}
+                    <p className="text-[11px] text-muted-foreground">{t(`dialog.gitAuth.permissions.${provider}`)}</p>
+                    {tokenPage && (
+                      <button type="button" onClick={() => void window.api.invoke('shell:open-external', tokenPage)} className="text-[11px] text-primary hover:underline">
+                        {t('dialog.gitAuth.createToken')}
+                      </button>
+                    )}
+                    {info && !canSendToken(info) && <p className="text-[11px] text-warning">{t('dialog.gitAuth.unencrypted')}</p>}
+                  </div>
+                )}
+                {gitAuth === 'ssh-key' && (
+                  <div className="col-span-2">
+                    <span className={label}>{t('dialog.sftpKeyPath')}</span>
+                    <input value={config.sshKeyPath ?? ''} onChange={(e) => patch({ sshKeyPath: e.target.value })} className={input} placeholder="~/.ssh/id_ed25519" />
+                  </div>
+                )}
+                <div className="col-span-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <span className={label}>{t('dialog.gitAuth.authorName')}</span>
+                    <input value={config.authorName ?? ''} onChange={(e) => patch({ authorName: e.target.value })} className={input} />
+                  </div>
+                  <div>
+                    <span className={label}>{t('dialog.gitAuth.authorEmail')}</span>
+                    <input value={config.authorEmail ?? ''} onChange={(e) => patch({ authorEmail: e.target.value })} className={input} />
+                  </div>
+                </div>
+                {!isWebMode && (
+                  <div className="col-span-2 space-y-1">
+                    <button type="button" onClick={() => void testRemote()} disabled={busy || !config.remoteUrl} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-md hover:bg-secondary disabled:opacity-50">
+                      {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" />}
+                      {t('dialog.test')}
+                    </button>
+                    {remote && !remote.ok && <p className="text-[11px] text-destructive select-text">{remote.message}</p>}
+                    {remote?.ok && <p className="text-[11px] text-success">{remote.empty ? t('dialog.gitAuth.okEmpty') : t('dialog.gitAuth.okBranches', { branches: remote.branches.join(', ') })}</p>}
+                    {remote?.publicRead === true && (
+                      <p className="text-[11px] text-warning flex gap-1">
+                        <TriangleAlert className="w-3.5 h-3.5 shrink-0" />
+                        {t('dialog.gitAuth.public')}
+                      </p>
+                    )}
+                    {remote?.publicRead === false && <p className="text-[11px] text-muted-foreground">{t('dialog.gitAuth.notPublic')}</p>}
+                  </div>
+                )}
               </div>
             )}
             {backend === 'folder' && (
@@ -319,7 +430,7 @@ export function SpaceDialog({ space, onClose }: { space?: KbSpace; onClose: () =
                 )}
               </div>
             )}
-            {editing && backend !== 'none' && (
+            {editing && backend !== 'none' && backend !== 'git' && (
               <div className="space-y-2">
                 <button
                   type="button"

@@ -2,6 +2,7 @@ import { existsSync, promises as fs, readFileSync, writeFileSync, mkdirSync, sta
 import { dirname, join, resolve } from 'path'
 import { execGit, execGitText, GitExecError } from '../../git/git-exec'
 import { scanText, isScannable, type SecretFinding } from '../secrets/scanner'
+import { explainGitError, type GitAuth } from './git-auth'
 import type { KbSyncReport } from '../../../shared/kb/types'
 
 export const GITIGNORE_LINES = [
@@ -15,6 +16,12 @@ export const GITIGNORE_LINES = [
 ]
 
 const REMOTE = 'origin'
+const BOILERPLATE = /^(readme|license|licence|copying)(\.(md|txt|rst))?$|^\.git(ignore|attributes)$/i
+
+export interface GitIdentity {
+  name?: string
+  email?: string
+}
 
 export interface GitSpaceOptions {
   branch: string
@@ -22,6 +29,7 @@ export interface GitSpaceOptions {
   childDirs?: string[]
   allowPush?: () => { ok: true } | { ok: false; reason: 'review' | 'locked' | 'readonly'; message: string }
   blockSecrets: boolean
+  auth?: GitAuth
   now?: () => Date
 }
 
@@ -45,9 +53,9 @@ async function git(root: string, args: string[], okCodes?: number[]): Promise<st
   return result.stdout.toString('utf-8')
 }
 
-async function tryGit(root: string, args: string[]): Promise<{ ok: boolean; out: string; err: string }> {
+async function tryGit(root: string, args: string[], auth?: GitAuth): Promise<{ ok: boolean; out: string; err: string }> {
   try {
-    const result = await execGit(args, { cwd: root })
+    const result = await execGit([...(auth?.args ?? []), ...args], { cwd: root, env: auth?.env })
     return { ok: true, out: result.stdout.toString('utf-8'), err: result.stderr }
   } catch (error) {
     if (error instanceof GitExecError) return { ok: false, out: '', err: error.stderr }
@@ -79,19 +87,27 @@ function ensureLines(file: string, lines: string[], header: string): boolean {
   return true
 }
 
-async function ensureIdentity(root: string): Promise<void> {
+async function ensureIdentity(root: string, identity: GitIdentity = {}): Promise<void> {
+  if (identity.name) await git(root, ['config', 'user.name', identity.name])
+  if (identity.email) await git(root, ['config', 'user.email', identity.email])
   const email = await tryGit(root, ['config', 'user.email'])
   if (email.ok && email.out.trim().length > 0) return
   await git(root, ['config', 'user.name', 'SincroGitExclude'])
   await git(root, ['config', 'user.email', 'sincrogitexclude@localhost'])
 }
 
-export async function ensureRepo(root: string, remoteUrl: string, branch: string, childDirs: string[] = []): Promise<void> {
+export async function ensureRepo(
+  root: string,
+  remoteUrl: string,
+  branch: string,
+  childDirs: string[] = [],
+  identity: GitIdentity = {}
+): Promise<void> {
   if (!(await isRepoRoot(root))) {
     await git(root, ['init', '-q', '-b', branch])
   }
   await git(root, ['config', 'core.quotepath', 'false'])
-  await ensureIdentity(root)
+  await ensureIdentity(root, identity)
   ensureLines(join(root, '.gitignore'), GITIGNORE_LINES, '# SincroGitExclude knowledge base')
   const excludePath = resolve(root, (await git(root, ['rev-parse', '--git-path', 'info/exclude'])).trim())
   if (childDirs.length > 0) {
@@ -104,15 +120,21 @@ export async function ensureRepo(root: string, remoteUrl: string, branch: string
   }
 }
 
-export async function cloneSpace(remoteUrl: string, target: string, branch: string): Promise<void> {
+export async function cloneSpace(
+  remoteUrl: string,
+  target: string,
+  branch: string,
+  auth?: GitAuth,
+  identity: GitIdentity = {}
+): Promise<void> {
   if (existsSync(target) && (await fs.readdir(target)).length > 0) {
     throw new Error(`The destination is not empty: ${target}`)
   }
   mkdirSync(dirname(target), { recursive: true })
   const parent = dirname(target)
-  await execGit(['clone', '-q', '--origin', REMOTE, remoteUrl, target], { cwd: parent })
+  await execGit([...(auth?.args ?? []), 'clone', '-q', '--origin', REMOTE, '--', remoteUrl, target], { cwd: parent, env: auth?.env })
   await git(target, ['config', 'core.quotepath', 'false'])
-  await ensureIdentity(target)
+  await ensureIdentity(target, identity)
   const branches = await tryGit(target, ['rev-parse', '--verify', '-q', `refs/remotes/${REMOTE}/${branch}`])
   if (branches.ok) await git(target, ['checkout', '-q', '-B', branch, `${REMOTE}/${branch}`])
 }
@@ -205,19 +227,34 @@ async function scanOutgoing(root: string, base: string | null, head: string): Pr
   return findings
 }
 
+async function adoptFreshRemote(root: string, remoteHead: string): Promise<void> {
+  const commits = Number((await git(root, ['rev-list', '--count', remoteHead])).trim())
+  const files = splitZ(await git(root, ['ls-tree', '-r', '--name-only', '-z', remoteHead]))
+  if (commits !== 1 || !files.every((f) => BOILERPLATE.test(f))) return
+  await git(root, ['reset', '-q', '--mixed', remoteHead])
+  const missing = files.filter((f) => !existsSync(join(root, f)))
+  if (missing.length > 0) await git(root, ['checkout', '-q', remoteHead, '--', ...missing])
+}
+
 export async function syncGitSpace(root: string, options: GitSpaceOptions): Promise<KbSyncReport> {
   const report = emptyReport()
   const now = options.now ?? (() => new Date())
   const branch = options.branch
   const remoteRef = `refs/remotes/${REMOTE}/${branch}`
 
-  await commitAll(root, `Update notes (${options.machineName})`)
+  const unborn = (await headOf(root)) === null
+  if (!unborn) await commitAll(root, `Update notes (${options.machineName})`)
 
-  const fetched = await tryGit(root, ['fetch', '-q', REMOTE, `+refs/heads/${branch}:${remoteRef}`])
+  const fetched = await tryGit(root, ['fetch', '-q', REMOTE, `+refs/heads/${branch}:${remoteRef}`], options.auth)
   const remoteHead = fetched.ok ? await refOf(root, remoteRef) : null
-  if (!fetched.ok && !/couldn't find remote ref|could not find remote ref/i.test(fetched.err)) {
+  const reachable = fetched.ok || /couldn't find remote ref|could not find remote ref/i.test(fetched.err)
+  if (unborn) {
+    if (reachable && remoteHead) await adoptFreshRemote(root, remoteHead)
+    await commitAll(root, `Update notes (${options.machineName})`)
+  }
+  if (!reachable) {
     report.ok = false
-    report.message = `fetch failed: ${fetched.err.trim()}`
+    report.message = `fetch failed: ${explainGitError(fetched.err)}`
     return report
   }
 
@@ -281,12 +318,12 @@ export async function syncGitSpace(root: string, options: GitSpaceOptions): Prom
     return report
   }
 
-  const push = await tryGit(root, ['push', '-q', REMOTE, `HEAD:refs/heads/${branch}`])
+  const push = await tryGit(root, ['push', '-q', REMOTE, `HEAD:refs/heads/${branch}`], options.auth)
   if (!push.ok) {
     report.ok = false
     report.message = /rejected|non-fast-forward|fetch first/i.test(push.err)
       ? 'The remote moved while syncing. Sync again to merge the new notes.'
-      : `push failed: ${push.err.trim()}`
+      : `push failed: ${explainGitError(push.err)}`
     return report
   }
   await tryGit(root, ['update-ref', remoteRef, head])

@@ -3,7 +3,6 @@ import { existsSync } from 'fs'
 import { getDb } from '../database/connection'
 import { pushEvent } from '../events'
 import { readSyncConfig } from '../sync/sync-config'
-import { execGit } from '../git/git-exec'
 import type { KbService } from './kb-service'
 import { emptyReport, ensureRepo, isRepoRoot, noteAt, noteDiff, noteHistory, syncGitSpace, commitAll, cloneSpace } from './sync/git-space'
 import { syncThreeWay, type SyncState } from './sync/three-way'
@@ -11,15 +10,20 @@ import { FsStore } from './sync/fs-store'
 import { SftpStore, probeSftp } from './sync/sftp-store'
 import { RemoteLockedError, type RemoteStore } from './sync/remote-store'
 import { getSecret } from './secret-vault'
+import { getGitCredential, setGitCredential } from './git-credentials'
+import { ghToken, probeRemote, sshKeyAuth, tokenAuth, type GitAuth, type GitCredential, type RemoteProbe } from './sync/git-auth'
+import { defaultUsername, detectProvider, parseRemote } from '../../shared/kb/git-remote'
 import { isCloudSyncedPath } from '../utils/errors'
-import type { KbOrigin, KbSpace, KbSyncReport, SftpBackendConfig } from '../../shared/kb/types'
+import type { GitBackendConfig, KbBackendConfig, KbOrigin, KbSpace, KbSyncReport, SftpBackendConfig } from '../../shared/kb/types'
 
 export interface EncryptionHooks {
   ensureUnlocked: (spaceId: string) => Promise<boolean>
   canPublish: (spaceId: string) => boolean
   wrapStore: (spaceId: string, raw: RemoteStore) => Promise<RemoteStore>
-  gitMirrorStore: (spaceId: string, remoteUrl: string, branch: string) => RemoteStore
+  gitMirrorStore: (spaceId: string, remoteUrl: string, branch: string, auth?: GitAuth) => RemoteStore
 }
+
+export type GitRemoteInput = Partial<GitBackendConfig> & { remoteUrl: string; token?: string; spaceId?: string }
 
 const WRITE_DEBOUNCE_MS = 2000
 const EXTERNAL_DEBOUNCE_MS = 30000
@@ -209,7 +213,7 @@ export class KbSyncService {
         report.message = 'The space is locked. Unlock it with its passphrase to sync.'
         return report
       }
-      const raw = this.rawStoreFor(spaceId)
+      const raw = await this.rawStoreFor(spaceId)
       const store = await this.encryption.wrapStore(spaceId, raw)
       return this.runThreeWay(spaceId, root, store, { machineName, childDirs, blockSecrets })
     }
@@ -219,10 +223,12 @@ export class KbSyncService {
       if (!remoteUrl) throw new Error('Set the git remote of the space first')
       if (isCloudSyncedPath(root)) throw new Error('Git cannot run inside a cloud-synced folder. Move the space first.')
       const branch = space.backendConfig.branch || 'main'
-      await ensureRepo(root, remoteUrl, branch, childDirs)
-      return syncGitSpace(root, { branch, machineName, childDirs, blockSecrets, allowPush: this.gate(spaceId) })
+      const auth = await this.gitAuthFor(space.backendConfig, spaceId)
+      const { authorName, authorEmail } = space.backendConfig
+      await ensureRepo(root, remoteUrl, branch, childDirs, { name: authorName, email: authorEmail })
+      return syncGitSpace(root, { branch, machineName, childDirs, blockSecrets, auth, allowPush: this.gate(spaceId) })
     }
-    return this.runThreeWay(spaceId, root, this.rawStore(space, false), { machineName, childDirs, blockSecrets })
+    return this.runThreeWay(spaceId, root, await this.rawStore(space, false), { machineName, childDirs, blockSecrets })
   }
 
   private async runThreeWay(
@@ -239,11 +245,42 @@ export class KbSyncService {
     return report
   }
 
-  rawStoreFor(spaceId: string): RemoteStore {
+  async gitAuthFor(config: KbBackendConfig, spaceId?: string, typed?: GitCredential): Promise<GitAuth | undefined> {
+    const mode = config.gitAuth ?? 'system'
+    const url = config.remoteUrl ?? ''
+    if (mode === 'system') return undefined
+    if (mode === 'ssh-key') return sshKeyAuth(config.sshKeyPath ?? '')
+    const info = parseRemote(url)
+    if (mode === 'gh') {
+      const username = config.gitUsername || undefined
+      return tokenAuth(info, { username: username ?? 'x-access-token', token: await ghToken(info.host ?? '', username) })
+    }
+    const credential = typed ?? (spaceId ? getGitCredential(spaceId, url) : null)
+    if (!credential) throw new Error('This space needs a token for its repository. Write it in the space settings, in the app window.')
+    return tokenAuth(info, credential)
+  }
+
+  storeGitToken(spaceId: string, token: string): void {
+    const { backendConfig } = this.kb.getSpace(spaceId)
+    const url = backendConfig.remoteUrl ?? ''
+    setGitCredential(spaceId, url, { username: this.usernameOf(backendConfig), token: token.trim() })
+  }
+
+  private usernameOf(config: KbBackendConfig): string {
+    return config.gitUsername?.trim() || defaultUsername(detectProvider(parseRemote(config.remoteUrl ?? '').host))
+  }
+
+  async testRemote(input: GitRemoteInput): Promise<RemoteProbe> {
+    parseRemote(input.remoteUrl)
+    const typed = input.token ? { username: this.usernameOf(input), token: input.token.trim() } : undefined
+    return probeRemote(input.remoteUrl, await this.gitAuthFor(input, input.spaceId, typed))
+  }
+
+  rawStoreFor(spaceId: string): Promise<RemoteStore> {
     return this.rawStore(this.kb.getSpace(spaceId), true)
   }
 
-  private rawStore(space: KbSpace, forEncryption: boolean): RemoteStore {
+  private async rawStore(space: KbSpace, forEncryption: boolean): Promise<RemoteStore> {
     const holder = `${this.machineName()}#${space.id.slice(0, 8)}`
     if (space.backend === 'folder') {
       const path = space.backendConfig.path
@@ -258,7 +295,8 @@ export class KbSyncService {
     }
     if (space.backend === 'git' && forEncryption) {
       if (!this.encryption) throw new Error('Encryption is not available')
-      return this.encryption.gitMirrorStore(space.id, space.backendConfig.remoteUrl ?? '', space.backendConfig.branch || 'main')
+      const auth = await this.gitAuthFor(space.backendConfig, space.id)
+      return this.encryption.gitMirrorStore(space.id, space.backendConfig.remoteUrl ?? '', space.backendConfig.branch || 'main', auth)
     }
     throw new Error(`Unsupported backend: ${space.backend}`)
   }
@@ -268,13 +306,7 @@ export class KbSyncService {
     if (space.backend === 'git') {
       const url = space.backendConfig.remoteUrl
       if (!url) throw new Error('Set the git remote first')
-      const result = await execGit(['ls-remote', '--heads', url], { cwd: this.kb.rootPathOf(spaceId) })
-      const branches = result.stdout
-        .toString('utf-8')
-        .split('\n')
-        .filter(Boolean)
-        .map((l) => l.split('\t')[1]?.replace('refs/heads/', ''))
-      return { ok: true, branches }
+      return { ...(await this.testRemote({ ...space.backendConfig, remoteUrl: url, spaceId })) }
     }
     if (space.backend === 'folder') {
       const path = space.backendConfig.path
@@ -302,16 +334,21 @@ export class KbSyncService {
     return noteDiff(this.kb.rootPathOf(spaceId), commit, path)
   }
 
-  async cloneAndAdd(input: { remoteUrl: string; branch?: string; targetPath: string; name?: string }): Promise<KbSpace> {
+  async cloneAndAdd(input: GitRemoteInput & { targetPath: string; name?: string }): Promise<KbSpace> {
     if (isCloudSyncedPath(input.targetPath)) throw new Error('Clone into a local folder, not a cloud-synced one.')
-    const branch = input.branch || 'main'
-    await cloneSpace(input.remoteUrl, input.targetPath, branch)
-    return this.kb.addSpace({
-      localPath: input.targetPath,
-      name: input.name,
+    const { targetPath, name, token, spaceId: _ignored, ...config } = input
+    const branch = config.branch || 'main'
+    const typed = token ? { username: this.usernameOf(config), token: token.trim() } : undefined
+    const identity = { name: config.authorName, email: config.authorEmail }
+    await cloneSpace(config.remoteUrl, targetPath, branch, await this.gitAuthFor(config, undefined, typed), identity)
+    const space = await this.kb.addSpace({
+      localPath: targetPath,
+      name,
       backend: 'git',
-      backendConfig: { remoteUrl: input.remoteUrl, branch },
+      backendConfig: { ...config, branch },
       sync: { intervalMin: 15, onWrite: true, autoCommitExternal: true }
     })
+    if (typed) setGitCredential(space.id, config.remoteUrl, typed)
+    return this.kb.getSpace(space.id)
   }
 }

@@ -221,7 +221,7 @@
       "hint": "Crea un token para cada equipo o asistente, con solo los permisos que necesita. Así puedes dar acceso a la memoria sin dar acceso a los ficheros gestionados, y revocarlo por separado.",
       "add": "Nuevo token",
       "namePlaceholder": "Nombre (p. ej. Portátil Windows)",
-      "scopesHint": "kb = base de conocimiento, sge = ficheros gestionados. read = consultar, write = cambiar.",
+      "scopesHint": "kb = base de conocimiento, sge = ficheros gestionados. read = consultar, write = cambiar, admin = añadir y configurar espacios (los destinos se confirman en este equipo).",
       "create": "Crear token",
       "created": "Token creado. Los comandos de abajo ya lo usan:",
       "primary": "Token principal",

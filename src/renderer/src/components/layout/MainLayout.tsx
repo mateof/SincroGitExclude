@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useUIStore } from '@/stores/ui-store'
 import { useFileStore } from '@/stores/file-store'
 import { useWatcherStore } from '@/stores/watcher-store'
@@ -12,11 +12,14 @@ import { FileDetailPage } from '@/pages/FileDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { RepoDetailPage } from '@/pages/RepoDetailPage'
 import { KnowledgePage } from '@/pages/KnowledgePage'
+import { SpaceDialog } from '@/components/kb/SpaceDialog'
 import { QuickSwitcher } from '@/components/kb/QuickSwitcher'
 import { useKbStore } from '@/stores/kb-store'
 import type { KbSemanticStatus, KbSyncReport } from '../../../../shared/kb/types'
 
 export function MainLayout() {
+  const [settingsSpaceId, setSettingsSpaceId] = useState<string | null>(null)
+  const settingsSpace = useKbStore((st) => st.spaces.find((sp) => sp.id === settingsSpaceId))
   const { currentView, selectedFileId, selectedRepoId, deselectFile, deselectRepo } =
     useUIStore()
   const { files } = useFileStore()
@@ -58,6 +61,7 @@ export function MainLayout() {
         useFileStore.getState().loadFiles()
         useFileStore.getState().loadTags()
         useRepoStore.getState().loadRepos()
+        void useKbStore.getState().loadSpaces()
         if (selectedFileId) useDeploymentStore.getState().loadDeployments(selectedFileId)
         useWatcherStore.getState().refreshChangedFileIds()
       }, 300)
@@ -65,6 +69,10 @@ export function MainLayout() {
 
     const unsubKb = window.api.on('kb:changed', (payload: unknown) => {
       useKbStore.getState().receiveChanged(payload as { spaceId: string; paths: string[] })
+    })
+    const unsubKbSettings = window.api.on('kb:open-space-settings', async (payload: unknown) => {
+      await useKbStore.getState().loadSpaces()
+      setSettingsSpaceId((payload as { spaceId: string }).spaceId)
     })
     const unsubKbSync = window.api.on('kb:sync-report', (payload: unknown) => {
       useKbStore.getState().receiveSyncReport(payload as { spaceId: string; report: KbSyncReport })
@@ -78,6 +86,7 @@ export function MainLayout() {
       unsubPreferences()
       unsubData()
       unsubKb()
+      unsubKbSettings()
       unsubKbSync()
       unsubKbSemantic()
     }
@@ -148,6 +157,7 @@ export function MainLayout() {
         </main>
       </div>
       <QuickSwitcher />
+      {settingsSpace && <SpaceDialog key={settingsSpace.id} space={settingsSpace} onClose={() => setSettingsSpaceId(null)} />}
     </div>
   )
 }

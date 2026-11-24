@@ -18,6 +18,7 @@ export interface GitExecOptions {
   env?: Record<string, string>
   input?: Buffer | string
   okCodes?: number[]
+  timeoutMs?: number
 }
 
 export interface GitExecResult {
@@ -61,15 +62,27 @@ export function execGit(args: string[], options: GitExecOptions): Promise<GitExe
       windowsHide: true
     })
 
+    let timedOut = false
+    const timer = options.timeoutMs
+      ? setTimeout(() => {
+          timedOut = true
+          child.kill('SIGKILL')
+        }, options.timeoutMs)
+      : null
+
     const out: Buffer[] = []
     const err: Buffer[] = []
     child.stdout.on('data', (chunk: Buffer) => out.push(chunk))
     child.stderr.on('data', (chunk: Buffer) => err.push(chunk))
-    child.on('error', reject)
+    child.on('error', (error) => {
+      if (timer) clearTimeout(timer)
+      reject(error)
+    })
     child.on('close', (code) => {
+      if (timer) clearTimeout(timer)
       const result: GitExecResult = {
         stdout: Buffer.concat(out),
-        stderr: Buffer.concat(err).toString('utf-8'),
+        stderr: timedOut ? 'Connection timed out' : Buffer.concat(err).toString('utf-8'),
         code: code ?? -1
       }
       const ok = options.okCodes ?? [0]

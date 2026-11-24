@@ -221,7 +221,7 @@
       "hint": "Create one token per computer or assistant, with only the permissions it needs. You can give access to the memory without access to managed files, and revoke each one separately.",
       "add": "New token",
       "namePlaceholder": "Name (e.g. Windows laptop)",
-      "scopesHint": "kb = knowledge base, sge = managed files. read = look, write = change.",
+      "scopesHint": "kb = knowledge base, sge = managed files. read = look, write = change, admin = add and configure spaces (destinations are confirmed on this computer).",
       "create": "Create token",
       "created": "Token created. The commands below already use it:",
       "primary": "Main token",

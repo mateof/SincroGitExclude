@@ -1,8 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto'
 
-export type McpScope = 'sge:read' | 'sge:write' | 'kb:read' | 'kb:write'
+export type McpScope = 'sge:read' | 'sge:write' | 'kb:read' | 'kb:write' | 'kb:admin'
 
-export const ALL_SCOPES: McpScope[] = ['sge:read', 'sge:write', 'kb:read', 'kb:write']
+export const ALL_SCOPES: McpScope[] = ['sge:read', 'sge:write', 'kb:read', 'kb:write', 'kb:admin']
 
 export interface McpToken {
   id: string
@@ -89,4 +89,8 @@ export function normalizeTokens(raw: unknown): McpToken[] {
 
 export function canAccessSpace(grant: McpGrant, spaceId: string): boolean {
   return grant.spaces === null || grant.spaces.includes(spaceId)
+}
+
+export function canAdminSpaces(grant: McpGrant): boolean {
+  return grant.scopes.has('kb:admin')
 }

@@ -21,6 +21,9 @@ import { KbService } from './kb/kb-service'
 import { KbSyncService } from './kb/kb-sync-service'
 import { KbRepoService } from './kb/kb-repo-service'
 import { KbCryptoService } from './kb/kb-crypto-service'
+import { KbAdminService } from './kb/kb-admin-service'
+import { ApprovalGate } from './kb/approval'
+import { askInWindow } from './kb/approval-dialog'
 import { SemanticService } from './kb/semantic/semantic-service'
 import { UpdateService } from './update/update-service'
 import { setKbNoteProvider } from './mcp/mcp-routes'
@@ -143,8 +146,9 @@ app.whenReady().then(async () => {
     ensureUnlocked: (spaceId) => kbCryptoService.ensureUnlocked(spaceId),
     canPublish: (spaceId) => kbCryptoService.canPublish(spaceId),
     wrapStore: (spaceId, raw) => kbCryptoService.wrapStore(spaceId, raw),
-    gitMirrorStore: (spaceId, url, branch) => kbCryptoService.gitMirrorStore(spaceId, url, branch)
+    gitMirrorStore: (spaceId, url, branch, auth) => kbCryptoService.gitMirrorStore(spaceId, url, branch, auth)
   })
+  const kbAdminService = new KbAdminService(kbService, kbSync, new ApprovalGate(askInWindow, () => app.getLocale()))
   const kbForRoutes = kbService
   setKbNoteProvider(async (spaceId, notePath) => (await kbForRoutes.readRaw(spaceId, notePath)).content)
 
@@ -189,6 +193,7 @@ app.whenReady().then(async () => {
     kbRepoService,
     kbCryptoService,
     semanticService,
+    kbAdminService,
     updateService,
     applyPreferences
   })

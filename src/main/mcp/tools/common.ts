@@ -2,7 +2,7 @@ import type { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { invokeChannel } from '../../ipc/channel-registry'
-import type { McpGrant } from '../mcp-grants'
+import { canAdminSpaces, type McpGrant } from '../mcp-grants'
 
 export const MAX_TEXT = 100_000
 
@@ -104,9 +104,9 @@ export function writeTool<S extends z.ZodRawShape>(
   name: string,
   config: ToolConfig<S>,
   handler: (args: Args<S>) => Promise<unknown>,
-  options: { destructive?: boolean; idempotent?: boolean; openWorld?: boolean; area?: ToolArea } = {}
+  options: { destructive?: boolean; idempotent?: boolean; openWorld?: boolean; area?: ToolArea; admin?: boolean } = {}
 ): void {
-  if (!canWrite(ctx, options.area ?? 'sge')) return
+  if (options.admin ? ctx.readOnly || !canAdminSpaces(ctx.grant) : !canWrite(ctx, options.area ?? 'sge')) return
   register(
     ctx,
     name,

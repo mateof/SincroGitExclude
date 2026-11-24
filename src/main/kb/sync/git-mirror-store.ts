@@ -2,6 +2,7 @@ import { existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { execGit, GitExecError } from '../../git/git-exec'
 import { FsStore } from './fs-store'
+import { explainGitError, type GitAuth } from './git-auth'
 import type { RemoteEntry, RemoteStore } from './remote-store'
 
 const AUTHOR = {
@@ -18,13 +19,18 @@ export class GitMirrorStore implements RemoteStore {
   constructor(
     private readonly dir: string,
     private readonly remoteUrl: string,
-    private readonly branch: string
+    private readonly branch: string,
+    private readonly auth?: GitAuth
   ) {
     this.files = new FsStore(dir, 'mirror')
   }
 
   private git(args: string[], env?: Record<string, string>): Promise<{ stdout: Buffer; stderr: string }> {
     return execGit(args, { cwd: this.dir, env })
+  }
+
+  private network(args: string[]): Promise<{ stdout: Buffer; stderr: string }> {
+    return this.git([...(this.auth?.args ?? []), ...args], this.auth?.env)
   }
 
   async open(): Promise<void> {
@@ -38,7 +44,7 @@ export class GitMirrorStore implements RemoteStore {
     }
     let remoteExists = true
     try {
-      await this.git(['fetch', '-q', 'origin', `+refs/heads/${this.branch}:refs/remotes/origin/${this.branch}`])
+      await this.network(['fetch', '-q', 'origin', `+refs/heads/${this.branch}:refs/remotes/origin/${this.branch}`])
     } catch (error) {
       if (error instanceof GitExecError && /couldn't find remote ref|could not find remote ref/i.test(error.stderr)) {
         remoteExists = false
@@ -81,14 +87,14 @@ export class GitMirrorStore implements RemoteStore {
     if (!staged) return
     await this.git(['commit', '-q', '--no-verify', '-m', 'sync'], AUTHOR)
     try {
-      await this.git(['push', '-q', 'origin', `HEAD:refs/heads/${this.branch}`])
+      await this.network(['push', '-q', 'origin', `HEAD:refs/heads/${this.branch}`])
     } catch (error) {
       const stderr = error instanceof GitExecError ? error.stderr : String(error)
       await this.git(['reset', '-q', '--hard', 'HEAD~1']).catch(() => undefined)
       if (/rejected|non-fast-forward|fetch first/i.test(stderr)) {
         throw new Error('The remote moved while syncing. Sync again to merge the new notes.')
       }
-      throw new Error(`push failed: ${stderr.trim()}`)
+      throw new Error(`push failed: ${explainGitError(stderr)}`)
     }
   }
 

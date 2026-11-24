@@ -40,7 +40,22 @@ The space folder is a normal repository with your notes on `main` (or the branch
 
 Each sync: commit local changes, fetch, merge (fast-forward when possible), push. It **never forces**. When two computers changed the same lines, the remote version stays in place and the local one is saved next to it as `note (conflict <machine> <date>).md`, so nothing is lost and both versions travel. A note edited here and deleted elsewhere is kept.
 
-Authentication is the git setup of the computer (SSH keys, credential helper). Prefer SSH over plain `http://`: over HTTP the credentials and the notes cross the network unencrypted.
+Each space chooses how it signs in:
+
+| Authentication | When |
+|---|---|
+| The git setup of this computer | Default. SSH agent, system keychain, Git Credential Manager, or the helpers of `gh` and `glab` |
+| User and token | Private repositories over HTTPS in Gitea, Forgejo, GitLab, GitHub or others. The settings link to the page of the server where the token is created |
+| GitHub CLI session | Asks `gh` for the token on every sync, with the account you choose even if it is not the active one |
+| A specific SSH key | Only that key is offered to the server |
+
+Permissions of the token: **GitHub** fine-grained, *Contents: Read and write*; **GitLab** personal or project token with `write_repository`; **Gitea and Forgejo** write permission on repositories. The user can stay empty in GitHub and GitLab.
+
+The token is stored in the system keychain, tied to the server of the space: changing the remote to another server does not send it there, and redirects to other servers do not receive it. It is never written to the repository, its URL or its configuration, and forgetting the space deletes it. It is not sent over plain `http://` except to private network addresses.
+
+*Test connection* also says whether anyone can read the repository without signing in. The name and email of the commits can be set per space.
+
+When the remote only has the commit a server creates with a new repository (README, LICENSE, .gitignore), the first sync builds on it and keeps the files of the space.
 
 ### Folder and SFTP
 
@@ -109,3 +124,16 @@ Notes are split by heading. Only chunks that changed are embedded again, vectors
 ## MCP
 
 The knowledge tools (`kb_status`, `kb_search`, `kb_read`, `kb_list`, `kb_recent`, `kb_tags`, `kb_repo_context`, `kb_history`, `kb_sync`, `kb_create`, `kb_edit`, `kb_append`, `kb_patch_section`, `kb_set_frontmatter`, `kb_delete`) are described in [mcp.md](mcp.md). Every change needs the hash returned by `kb_read`, so an assistant can never overwrite an edit it has not seen.
+
+### Setting spaces up from an assistant
+
+`kb_add_space`, `kb_clone_space`, `kb_update_space` and `kb_test_space` let an assistant prepare a space. The first three need the `kb:admin` permission, which the primary token has.
+
+- Name and sync schedule apply at once.
+- Adding or cloning a folder, or changing the destination, its authentication or the commit identity, opens a dialog on the computer where the app runs. Nothing is applied without *Allow*; without an answer in about two minutes it is refused, and after a refusal there is a short pause.
+- An assistant can turn protections on (review, shared, no assistant writes) but never off, cannot change the destination of an encrypted space, and cannot add hidden or system folders.
+- Tokens are only typed in the app window. When one is missing the app opens the settings of the space.
+
+### Editing the files directly
+
+Any program can edit the files of a space. The watcher indexes the change, and it is synced about thirty seconds later with *Sync after every write*, or on the timer. Those edits count as made by the person: they skip the review queue, the audit and the hash check. Use the `kb_*` tools in shared spaces.

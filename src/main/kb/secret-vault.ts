@@ -47,6 +47,10 @@ export function getSecret(key: string): Buffer | null {
   }
 }
 
+export function secretKeys(): string[] {
+  return Object.keys(readVault())
+}
+
 export function hasSecret(key: string): boolean {
   return key in readVault()
 }

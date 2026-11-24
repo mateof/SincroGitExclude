@@ -1,8 +1,15 @@
+import type { GitAuthMode } from './git-remote'
+
 export type KbBackend = 'none' | 'git' | 'folder' | 'sftp'
 
 export interface GitBackendConfig {
   remoteUrl: string
   branch: string
+  gitAuth?: GitAuthMode
+  gitUsername?: string
+  sshKeyPath?: string
+  authorName?: string
+  authorEmail?: string
 }
 
 export interface FolderBackendConfig {
@@ -60,6 +67,7 @@ export interface KbSpace {
   stats: { notes: number; files: number; tags: number; unresolved: number } | null
   pendingReview: number
   locked: boolean
+  gitCredential: 'stored' | 'missing' | null
 }
 
 export interface KbSpaceInput {

@@ -13,7 +13,7 @@ export interface McpTokenView {
   preview: string
 }
 
-const SCOPES = ['kb:read', 'kb:write', 'sge:read', 'sge:write']
+const SCOPES = ['kb:read', 'kb:write', 'kb:admin', 'sge:read', 'sge:write']
 
 export function McpTokens({
   tokens,

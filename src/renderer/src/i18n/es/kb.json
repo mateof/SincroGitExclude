@@ -112,7 +112,7 @@
       "sftp": "Servidor SFTP"
     },
     "gitRemote": "URL del remoto",
-    "gitRemoteHint": "SSH recomendado, por ejemplo git@192.168.0.22:mateo/vault.git. La autenticación es la de git en este equipo.",
+    "gitRemoteHint": "HTTPS o SSH, sin token en la URL.",
     "gitBranch": "Rama",
     "folderPath": "Carpeta de destino",
     "sftpHost": "Servidor",
@@ -148,7 +148,36 @@
     "relocateBody": "Se copia el espacio a la carpeta nueva y la app pasa a usarla. La carpeta antigua no se toca: deja de sincronizarla con Drive cuando hayas comprobado la copia, y no la borres dentro de la carpeta sincronizada porque el borrado se propagaría a todos los equipos.",
     "relocateTarget": "Carpeta de destino (vacía o inexistente)",
     "relocateConfirm": "Copiar y usar la carpeta nueva",
-    "encryptedRemote": "Este destino ya es un espacio cifrado"
+    "encryptedRemote": "Este destino ya es un espacio cifrado",
+    "gitAuth": {
+      "label": "Autenticación",
+      "system": "La de git en este equipo",
+      "token": "Usuario y token",
+      "gh": "Sesión de GitHub CLI",
+      "ssh-key": "Clave SSH concreta",
+      "systemHint": "Usa el agente SSH o las credenciales guardadas en git (llavero, Git Credential Manager, gh, glab).",
+      "tokenHint": "Para repositorios privados por HTTPS en Gitea, Forgejo, GitLab, GitHub u otros. El token se guarda en el llavero del sistema y solo se envía a este servidor.",
+      "ghHint": "Pide el token a gh en cada sincronización, con la cuenta que indiques aunque no sea la activa. No guarda nada.",
+      "ssh-keyHint": "Para remotos SSH, con esa clave y sin probar las demás. Si tiene passphrase, cárgala antes en el agente.",
+      "username": "Usuario",
+      "tokenField": "Token",
+      "stored": "Guardado en el llavero. Escribe otro para cambiarlo.",
+      "onlyWindow": "El token solo se puede escribir en la ventana de la aplicación.",
+      "createToken": "Crear el token en el servidor",
+      "unencrypted": "Ese remoto no va cifrado: el token no se enviará. Usa https.",
+      "authorName": "Nombre en los commits",
+      "authorEmail": "Correo en los commits",
+      "okEmpty": "Conexión correcta. El repositorio está vacío.",
+      "okBranches": "Conexión correcta. Ramas: {{branches}}",
+      "public": "Cualquiera puede leer este repositorio sin iniciar sesión.",
+      "notPublic": "No se puede leer sin iniciar sesión. En un repositorio público de un servidor con acceso restringido, aún pueden leerlo sus usuarios.",
+      "permissions": {
+        "github": "Token fine-grained del repositorio con Contents: Read and write. El usuario puede quedar vacío.",
+        "gitlab": "Token personal o de proyecto con write_repository. El usuario puede quedar vacío.",
+        "gitea": "Token con permiso de escritura en repositorios y tu usuario.",
+        "other": "Tu usuario y un token o contraseña de aplicación con permiso de escritura."
+      }
+    }
   },
   "sync": {
     "title": "Sincronización",

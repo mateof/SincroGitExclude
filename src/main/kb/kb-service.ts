@@ -9,6 +9,9 @@ import { SpaceIndex, hashContent } from './index/space-index'
 import { SpaceFamily, type FamilyMember } from './family'
 import { ensureSpaceMeta, readSpaceMeta, renameSpaceMeta } from './space-meta'
 import { isHiddenSegment, normalizeRel, resolveInSpace, toRel } from './paths'
+import { clearGitCredentials, hasGitCredential } from './git-credentials'
+import { deleteSecret } from './secret-vault'
+import { parseRemote } from '../../shared/kb/git-remote'
 import * as writer from './note-writer'
 import { isImagePath, extensionOf } from '../../shared/kb/wikilink'
 import { fuseRrf } from './semantic/vector-store'
@@ -120,13 +123,15 @@ export class KbService {
     const pending = getDb()
       .prepare("SELECT COUNT(*) AS n FROM kb_audit WHERE space_id = ? AND review_state = 'pending'")
       .get(row.id) as { n: number }
+    const backendConfig = parseJson<KbBackendConfig>(row.backend_config, {})
+    const usesToken = row.backend === 'git' && backendConfig.gitAuth === 'token'
     return {
       id: row.id,
       name: row.name,
       localPath: row.local_path.replace(/\\/g, '/'),
       parentId: row.parent_id,
       backend: row.backend as KbBackend,
-      backendConfig: parseJson<KbBackendConfig>(row.backend_config, {}),
+      backendConfig,
       sync: {
         intervalMin: row.sync_interval_min,
         onWrite: row.sync_on_write === 1,
@@ -143,7 +148,8 @@ export class KbService {
       cloudSynced: isCloudSyncedPath(row.local_path),
       stats: index ? index.stats() : null,
       pendingReview: pending.n,
-      locked: row.encrypted === 1 && this.hooks.isLocked(row.id)
+      locked: row.encrypted === 1 && this.hooks.isLocked(row.id),
+      gitCredential: usesToken ? (hasGitCredential(row.id, backendConfig.remoteUrl ?? '') ? 'stored' : 'missing') : null
     }
   }
 
@@ -356,6 +362,7 @@ export class KbService {
         'This folder is inside a cloud-synced folder (Synology Drive, Dropbox, iCloud...). Git breaks there. Move the space to a local folder first.'
       )
     }
+    if (backend === 'git' && input.backendConfig?.remoteUrl) parseRemote(input.backendConfig.remoteUrl)
     const detected = this.detectParent(full, rows)
     const parentId = input.parentId === undefined ? (detected?.id ?? null) : input.parentId
     if (parentId) {
@@ -417,6 +424,7 @@ export class KbService {
       }
       set('backend', patch.backend)
     }
+    if ((patch.backend ?? row.backend) === 'git' && patch.backendConfig?.remoteUrl) parseRemote(patch.backendConfig.remoteUrl)
     if (patch.backendConfig !== undefined) set('backend_config', JSON.stringify(patch.backendConfig))
     if (patch.sync?.intervalMin !== undefined) set('sync_interval_min', Math.max(0, Math.floor(patch.sync.intervalMin)))
     if (patch.sync?.onWrite !== undefined) set('sync_on_write', patch.sync.onWrite ? 1 : 0)
@@ -448,6 +456,8 @@ export class KbService {
     this.indexes.delete(id)
     getDb().prepare('UPDATE kb_spaces SET parent_id = ? WHERE parent_id = ?').run(row.parent_id, id)
     getDb().prepare('DELETE FROM kb_spaces WHERE id = ?').run(id)
+    clearGitCredentials(id)
+    deleteSecret(`sftp:${id}`)
     this.invalidateFamilies()
     if (row.parent_id) await this.reindex(row.parent_id)
     this.hooks.onSpacesChanged()

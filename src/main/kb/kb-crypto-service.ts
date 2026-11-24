@@ -7,6 +7,7 @@ import { getDb } from '../database/connection'
 import { APP_DATA_DIR } from '../app-paths'
 import type { KbService } from './kb-service'
 import { getSecret, osKeychainUsable, setSecret } from './secret-vault'
+import type { GitAuth } from './sync/git-auth'
 import { createIdentity, fingerprint, isPublicIdentity, pairingCode, publicPart, type PrivateIdentity, type PublicIdentity } from './crypto/identity'
 import {
   addRecipient,
@@ -75,7 +76,7 @@ export function generatePassphrase(language: 'es' | 'en' = 'es', count = 7): str
 }
 
 export interface CryptoDeps {
-  rawStoreFor: (spaceId: string) => RemoteStore
+  rawStoreFor: (spaceId: string) => Promise<RemoteStore>
   triggerSync: (spaceId: string) => void
   machineName: () => string
 }
@@ -152,7 +153,7 @@ export class KbCryptoService {
   }
 
   private async fetchRemote(spaceId: string): Promise<{ keyring: Keyring | null; cryptoSpaceId: string | null; pending: PublicIdentity[] }> {
-    const raw = this.deps.rawStoreFor(spaceId)
+    const raw = await this.deps.rawStoreFor(spaceId)
     await raw.open()
     try {
       const files = new Set((await raw.list()).map((e) => e.path))
@@ -375,7 +376,7 @@ export class KbCryptoService {
 
   async requestAccess(spaceId: string): Promise<{ fingerprint: string; deviceName: string }> {
     const device = await this.device()
-    const raw = this.deps.rawStoreFor(spaceId)
+    const raw = await this.deps.rawStoreFor(spaceId)
     await raw.open()
     try {
       await raw.write(
@@ -407,7 +408,7 @@ export class KbCryptoService {
 
   private async removePending(spaceId: string, requestId: string): Promise<void> {
     if (!/^[0-9a-f-]{36}$/i.test(requestId)) throw new Error('Invalid request')
-    const raw = this.deps.rawStoreFor(spaceId)
+    const raw = await this.deps.rawStoreFor(spaceId)
     await raw.open()
     try {
       await raw.remove(`${PENDING_DIR}/${requestId}.json`)
@@ -513,7 +514,7 @@ export class KbCryptoService {
     })
   }
 
-  gitMirrorStore(spaceId: string, remoteUrl: string, branch: string): RemoteStore {
-    return new GitMirrorStore(join(APP_DATA_DIR, 'kb-mirrors', spaceId), remoteUrl, branch)
+  gitMirrorStore(spaceId: string, remoteUrl: string, branch: string, auth?: GitAuth): RemoteStore {
+    return new GitMirrorStore(join(APP_DATA_DIR, 'kb-mirrors', spaceId), remoteUrl, branch, auth)
   }
 }

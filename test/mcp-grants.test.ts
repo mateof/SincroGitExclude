@@ -24,8 +24,17 @@ const TOKENS: McpToken[] = [
     scopes: ['kb:read', 'kb:write'],
     spaces: null,
     createdAt: '2026-11-23T00:00:00.000Z'
+  },
+  {
+    id: 'admin',
+    name: 'Limited admin',
+    token: 'sge_kb_admin_token_12345678',
+    scopes: ['kb:read', 'kb:admin'],
+    spaces: ['space-a'],
+    createdAt: '2026-11-23T00:00:00.000Z'
   }
 ]
+const ADMIN_TOOLS = ['kb_add_space', 'kb_clone_space', 'kb_update_space']
 
 let server: Server
 let url: string
@@ -72,6 +81,27 @@ describe('MCP tokens with scopes', () => {
     const names = await toolNames(TOKENS[1].token)
     expect(names).toContain('kb_patch_section')
     expect(names).not.toContain('delete_file')
+  })
+
+  it('only shows the space setup tools to tokens with kb:admin', async () => {
+    expect(await toolNames(PRIMARY)).toEqual(expect.arrayContaining(ADMIN_TOOLS))
+    expect(await toolNames(TOKENS[2].token)).toEqual(expect.arrayContaining(ADMIN_TOOLS))
+    for (const token of [TOKENS[0], TOKENS[1]]) {
+      expect((await toolNames(token.token)).filter((n) => ADMIN_TOOLS.includes(n))).toEqual([])
+    }
+  })
+
+  it('does not let a token limited to some spaces add or clone others', async () => {
+    const client = new Client({ name: 'test', version: '1.0.0' })
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers: { Authorization: `Bearer ${TOKENS[2].token}` } } })
+    )
+    for (const name of ['kb_add_space', 'kb_clone_space']) {
+      const result = await client.callTool({ name, arguments: { path: '/tmp/x', remoteUrl: 'https://h.example/a.git' } })
+      expect(result.isError).toBe(true)
+      expect(JSON.stringify(result.content)).toMatch(/limited to some spaces/)
+    }
+    await client.close()
   })
 
   it('rejects an unknown token', async () => {

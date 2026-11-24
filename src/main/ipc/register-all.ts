@@ -27,6 +27,8 @@ import { registerKbSyncHandlers } from './kb-sync-handlers'
 import { registerKbRepoHandlers } from './kb-repo-handlers'
 import { registerKbCryptoHandlers } from './kb-crypto-handlers'
 import { registerKbSemanticHandlers } from './kb-semantic-handlers'
+import { registerKbAdminHandlers } from './kb-admin-handlers'
+import type { KbAdminService } from '../kb/kb-admin-service'
 import { registerUpdateHandlers } from './update-handlers'
 import type { UpdateService } from '../update/update-service'
 import type { SemanticService } from '../kb/semantic/semantic-service'
@@ -124,6 +126,7 @@ interface Services {
   kbRepoService: KbRepoService
   kbCryptoService: KbCryptoService
   semanticService: SemanticService
+  kbAdminService: KbAdminService
   updateService: UpdateService
   applyPreferences: (preferences: Preferences) => void
 }
@@ -149,5 +152,6 @@ export function registerAllHandlers(services: Services): void {
   registerKbRepoHandlers(services.kbRepoService)
   registerKbCryptoHandlers(services.kbCryptoService)
   registerKbSemanticHandlers(services.semanticService)
+  registerKbAdminHandlers(services.kbAdminService)
   registerUpdateHandlers(services.updateService)
 }

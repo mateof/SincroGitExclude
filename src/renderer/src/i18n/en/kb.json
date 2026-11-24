@@ -112,7 +112,7 @@
       "sftp": "SFTP server"
     },
     "gitRemote": "Remote URL",
-    "gitRemoteHint": "SSH recommended, e.g. git@192.168.0.22:me/vault.git. Authentication is the git setup of this computer.",
+    "gitRemoteHint": "HTTPS or SSH, without any token in the URL.",
     "gitBranch": "Branch",
     "folderPath": "Destination folder",
     "sftpHost": "Server",
@@ -148,7 +148,36 @@
     "relocateBody": "The space is copied to the new folder and the app switches to it. The old folder is left alone: stop syncing it with Drive once you checked the copy, and do not delete it inside the synced folder because the deletion would reach every machine.",
     "relocateTarget": "Destination folder (empty or new)",
     "relocateConfirm": "Copy and use the new folder",
-    "encryptedRemote": "This destination already holds an encrypted space"
+    "encryptedRemote": "This destination already holds an encrypted space",
+    "gitAuth": {
+      "label": "Authentication",
+      "system": "The git setup of this computer",
+      "token": "User and token",
+      "gh": "GitHub CLI session",
+      "ssh-key": "A specific SSH key",
+      "systemHint": "Uses the SSH agent or the credentials saved in git (keychain, Git Credential Manager, gh, glab).",
+      "tokenHint": "For private repositories over HTTPS in Gitea, Forgejo, GitLab, GitHub or others. The token is stored in the system keychain and only sent to this server.",
+      "ghHint": "Asks gh for the token on every sync, with the account you choose even if it is not the active one. Stores nothing.",
+      "ssh-keyHint": "For SSH remotes, with that key and without trying others. If it has a passphrase, load it in the agent first.",
+      "username": "User",
+      "tokenField": "Token",
+      "stored": "Stored in the keychain. Type another one to change it.",
+      "onlyWindow": "The token can only be typed in the app window.",
+      "createToken": "Create the token on the server",
+      "unencrypted": "That remote is not encrypted: the token will not be sent. Use https.",
+      "authorName": "Name in the commits",
+      "authorEmail": "Email in the commits",
+      "okEmpty": "Connection works. The repository is empty.",
+      "okBranches": "Connection works. Branches: {{branches}}",
+      "public": "Anyone can read this repository without signing in.",
+      "notPublic": "It cannot be read without signing in. Users of a restricted server can still read its public repositories.",
+      "permissions": {
+        "github": "Fine-grained token of the repository with Contents: Read and write. The user can stay empty.",
+        "gitlab": "Personal or project token with write_repository. The user can stay empty.",
+        "gitea": "Token with write permission on repositories, and your user.",
+        "other": "Your user and a token or app password with write permission."
+      }
+    }
   },
   "sync": {
     "title": "Sync",

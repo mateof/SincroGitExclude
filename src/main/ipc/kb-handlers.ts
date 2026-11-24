@@ -29,14 +29,24 @@ export function originOf(event: unknown, origin: KbOrigin | undefined): KbOrigin
   return { source: 'ui', tool: origin?.tool }
 }
 
+function rejectAssistant(event: unknown): void {
+  if ((event as { __transport?: string } | null)?.__transport === 'mcp') throw new Error('Assistants change spaces through their own tools')
+}
+
 export function registerKbHandlers(kb: KbService): void {
   kbHandle('kb:list-spaces', async () => {
     await kb.whenReady()
     return kb.listSpaces()
   })
   kbHandle('kb:get-space', (_e, id: string) => kb.getSpace(id))
-  kbHandle('kb:add-space', (_e, input: KbSpaceInput) => kb.addSpace(input))
-  kbHandle('kb:update-space', (_e, id: string, patch: Partial<KbSpaceInput>) => kb.updateSpace(id, patch))
+  kbHandle('kb:add-space', (e, input: KbSpaceInput) => {
+    rejectAssistant(e)
+    return kb.addSpace(input)
+  })
+  kbHandle('kb:update-space', (e, id: string, patch: Partial<KbSpaceInput>) => {
+    rejectAssistant(e)
+    return kb.updateSpace(id, patch)
+  })
   kbHandle('kb:remove-space', async (_e, id: string) => {
     await kb.removeSpace(id)
     return { removed: id }
