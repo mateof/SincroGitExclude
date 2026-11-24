@@ -2,6 +2,7 @@ import { useUIStore } from '@/stores/ui-store'
 import { SidebarTabs } from './SidebarTabs'
 import { FilesSidebarPanel } from './FilesSidebarPanel'
 import { ReposSidebarPanel } from './ReposSidebarPanel'
+import { KnowledgeSidebarPanel } from '@/components/kb/KnowledgeSidebarPanel'
 
 export function Sidebar() {
   const { sidebarOpen, sidebarTab } = useUIStore()
@@ -13,7 +14,13 @@ export function Sidebar() {
       <div className="p-2 border-b border-border">
         <SidebarTabs />
       </div>
-      {sidebarTab === 'files' ? <FilesSidebarPanel /> : <ReposSidebarPanel />}
+      {sidebarTab === 'files' ? (
+        <FilesSidebarPanel />
+      ) : sidebarTab === 'repos' ? (
+        <ReposSidebarPanel />
+      ) : (
+        <KnowledgeSidebarPanel />
+      )}
     </aside>
   )
 }

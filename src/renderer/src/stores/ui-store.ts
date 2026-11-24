@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { isWebMode } from '@/lib/web-api'
 
-type CurrentView = 'dashboard' | 'file-detail' | 'settings' | 'repo-detail'
+type CurrentView = 'dashboard' | 'file-detail' | 'settings' | 'repo-detail' | 'knowledge'
 type Theme = 'dark' | 'light'
-type SidebarTab = 'files' | 'repos'
+type SidebarTab = 'files' | 'repos' | 'knowledge'
 
 interface UIStore {
   /**
@@ -24,13 +24,14 @@ interface UIStore {
   selectRepo: (repoId: string) => void
   deselectRepo: () => void
   setSidebarTab: (tab: SidebarTab) => void
+  openKnowledge: () => void
   toggleSidebar: () => void
   setTheme: (theme: Theme) => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
   isWebMode,
-  currentView: 'dashboard',
+  currentView: localStorage.getItem('sidebarTab') === 'knowledge' ? 'knowledge' : 'dashboard',
   selectedFileId: null,
   selectedRepoId: null,
   sidebarOpen: true,
@@ -60,7 +61,15 @@ export const useUIStore = create<UIStore>((set) => ({
 
   setSidebarTab: (tab) => {
     localStorage.setItem('sidebarTab', tab)
-    set({ sidebarTab: tab })
+    set((s) => ({
+      sidebarTab: tab,
+      currentView: tab === 'knowledge' ? 'knowledge' : s.currentView === 'knowledge' ? 'dashboard' : s.currentView
+    }))
+  },
+
+  openKnowledge: () => {
+    localStorage.setItem('sidebarTab', 'knowledge')
+    set({ sidebarTab: 'knowledge', currentView: 'knowledge', selectedFileId: null, selectedRepoId: null })
   },
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),

@@ -12,6 +12,8 @@ import enSettings from './en/settings.json'
 import esSettings from './es/settings.json'
 import enRepos from './en/repos.json'
 import esRepos from './es/repos.json'
+import enKb from './en/kb.json'
+import esKb from './es/kb.json'
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -21,7 +23,8 @@ i18n.use(initReactI18next).init({
       deployments: enDeployments,
       commits: enCommits,
       settings: enSettings,
-      repos: enRepos
+      repos: enRepos,
+      kb: enKb
     },
     es: {
       common: esCommon,
@@ -29,7 +32,8 @@ i18n.use(initReactI18next).init({
       deployments: esDeployments,
       commits: esCommits,
       settings: esSettings,
-      repos: esRepos
+      repos: esRepos,
+      kb: esKb
     }
   },
   defaultNS: 'common',

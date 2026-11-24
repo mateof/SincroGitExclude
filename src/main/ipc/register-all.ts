@@ -22,6 +22,16 @@ import { registerServerHandlers } from './server-handlers'
 import { registerSyncHandlers } from './sync-handlers'
 import { registerMcpHandlers } from './mcp-handlers'
 import { registerPreferencesHandlers } from './preferences-handlers'
+import { registerKbHandlers } from './kb-handlers'
+import { registerKbSyncHandlers } from './kb-sync-handlers'
+import { registerKbRepoHandlers } from './kb-repo-handlers'
+import { registerKbCryptoHandlers } from './kb-crypto-handlers'
+import { registerKbSemanticHandlers } from './kb-semantic-handlers'
+import type { SemanticService } from '../kb/semantic/semantic-service'
+import type { KbCryptoService } from '../kb/kb-crypto-service'
+import type { KbRepoService } from '../kb/kb-repo-service'
+import type { KbService } from '../kb/kb-service'
+import type { KbSyncService } from '../kb/kb-sync-service'
 import type { Preferences } from '../preferences'
 import type { SnapshotService } from '../services/snapshot-service'
 import type { RepoService } from '../services/repo-service'
@@ -107,6 +117,11 @@ interface Services {
   snapshotService: SnapshotService
   repoService: RepoService
   syncService: SyncService
+  kbService: KbService
+  kbSyncService: KbSyncService
+  kbRepoService: KbRepoService
+  kbCryptoService: KbCryptoService
+  semanticService: SemanticService
   applyPreferences: (preferences: Preferences) => void
 }
 
@@ -126,4 +141,9 @@ export function registerAllHandlers(services: Services): void {
   registerSyncHandlers(services.syncService)
   registerMcpHandlers()
   registerPreferencesHandlers(services.applyPreferences)
+  registerKbHandlers(services.kbService)
+  registerKbSyncHandlers(services.kbService, services.kbSyncService)
+  registerKbRepoHandlers(services.kbRepoService)
+  registerKbCryptoHandlers(services.kbCryptoService)
+  registerKbSemanticHandlers(services.semanticService)
 }

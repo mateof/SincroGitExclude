@@ -1,22 +1,24 @@
 import express, { type Express, type Request, type Response } from 'express'
-import { createHash, timingSafeEqual } from 'crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { bearerOf, tokenMatches, type McpGrant } from './mcp-grants'
+
+export interface McpGetRoute {
+  path: string
+  handler: (req: Request, res: Response, grant: McpGrant) => Promise<void>
+}
 
 export interface McpAppOptions {
   path: string
-  getToken: () => string
-  buildServer: () => McpServer
+  authenticate: (authorization: string | undefined) => McpGrant | null
+  buildServer: (grant: McpGrant) => McpServer
+  getRoutes?: McpGetRoute[]
   onError?: (error: unknown) => void
 }
 
-function digest(value: string): Buffer {
-  return createHash('sha256').update(value).digest()
-}
-
 export function bearerMatches(header: string | undefined, expected: string): boolean {
-  if (!header?.startsWith('Bearer ')) return false
-  return timingSafeEqual(digest(header.slice(7).trim()), digest(expected))
+  const presented = bearerOf(header)
+  return presented !== null && tokenMatches(presented, expected)
 }
 
 function rpcError(res: Response, status: number, code: number, message: string): void {
@@ -29,13 +31,14 @@ export function createMcpApp(options: McpAppOptions): Express {
   app.use(express.json({ limit: '10mb' }))
 
   app.post(options.path, async (req: Request, res: Response) => {
-    if (!bearerMatches(req.headers.authorization, options.getToken())) {
+    const grant = options.authenticate(req.headers.authorization)
+    if (!grant) {
       res.setHeader('WWW-Authenticate', 'Bearer')
       rpcError(res, 401, -32001, 'Missing or invalid token. Copy the command again from Settings > MCP.')
       return
     }
 
-    const server = options.buildServer()
+    const server = options.buildServer(grant)
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true
@@ -54,6 +57,24 @@ export function createMcpApp(options: McpAppOptions): Express {
       else res.end()
     }
   })
+
+  for (const route of options.getRoutes ?? []) {
+    app.get(route.path, async (req: Request, res: Response) => {
+      const grant = options.authenticate(req.headers.authorization)
+      if (!grant) {
+        res.setHeader('WWW-Authenticate', 'Bearer')
+        res.status(401).type('text/plain').send('Missing or invalid token')
+        return
+      }
+      try {
+        await route.handler(req, res, grant)
+      } catch (error) {
+        options.onError?.(error)
+        if (!res.headersSent) res.status(500).type('text/plain').send('Internal error')
+        else res.end()
+      }
+    })
+  }
 
   const notAllowed = (_req: Request, res: Response): void =>
     rpcError(res, 405, -32000, 'Method not allowed. Use POST.')

@@ -11,6 +11,10 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { FileDetailPage } from '@/pages/FileDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { RepoDetailPage } from '@/pages/RepoDetailPage'
+import { KnowledgePage } from '@/pages/KnowledgePage'
+import { QuickSwitcher } from '@/components/kb/QuickSwitcher'
+import { useKbStore } from '@/stores/kb-store'
+import type { KbSemanticStatus, KbSyncReport } from '../../../../shared/kb/types'
 
 export function MainLayout() {
   const { currentView, selectedFileId, selectedRepoId, deselectFile, deselectRepo } =
@@ -59,10 +63,23 @@ export function MainLayout() {
       }, 300)
     })
 
+    const unsubKb = window.api.on('kb:changed', (payload: unknown) => {
+      useKbStore.getState().receiveChanged(payload as { spaceId: string; paths: string[] })
+    })
+    const unsubKbSync = window.api.on('kb:sync-report', (payload: unknown) => {
+      useKbStore.getState().receiveSyncReport(payload as { spaceId: string; report: KbSyncReport })
+    })
+    const unsubKbSemantic = window.api.on('kb:semantic-status', (payload: unknown) => {
+      useKbStore.getState().receiveSemantic(payload as KbSemanticStatus)
+    })
+
     return () => {
       if (timer) clearTimeout(timer)
       unsubPreferences()
       unsubData()
+      unsubKb()
+      unsubKbSync()
+      unsubKbSemantic()
     }
   }, [])
 
@@ -102,6 +119,8 @@ export function MainLayout() {
     switch (currentView) {
       case 'settings':
         return <SettingsPage />
+      case 'knowledge':
+        return <KnowledgePage />
       case 'file-detail':
         return selectedFileId && fileExists ? (
           <FileDetailPage fileId={selectedFileId} />
@@ -124,10 +143,11 @@ export function MainLayout() {
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto bg-background">
-          {renderContent()}
+        <main className={`flex-1 bg-background ${currentView === 'knowledge' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          {currentView === 'knowledge' ? <div className="h-full overflow-y-auto">{renderContent()}</div> : renderContent()}
         </main>
       </div>
+      <QuickSwitcher />
     </div>
   )
 }

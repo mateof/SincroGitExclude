@@ -9,6 +9,7 @@ import { ExcludeEntryList } from '@/components/repos/ExcludeEntryList'
 import { AddExcludeDialog } from '@/components/repos/AddExcludeDialog'
 import { RemoveExcludeConfirmDialog } from '@/components/repos/RemoveExcludeConfirmDialog'
 import { copyText } from '@/lib/clipboard'
+import { RepoKnowledgeTab } from '@/components/kb/RepoKnowledgeTab'
 import {
   FolderGit2,
   FolderOpen,
@@ -27,11 +28,12 @@ interface RepoDetailPageProps {
   repoId: string
 }
 
-type Tab = 'managed' | 'exclude'
+type Tab = 'managed' | 'exclude' | 'knowledge'
 
 export function RepoDetailPage({ repoId }: RepoDetailPageProps) {
   const { isWebMode } = useUIStore()
   const { t } = useTranslation('repos')
+  const { t: tk } = useTranslation('kb')
   const { t: tc } = useTranslation('common')
   const {
     repos,
@@ -285,7 +287,19 @@ export function RepoDetailPage({ repoId }: RepoDetailPageProps) {
         >
           {t('detail.tabExclude')} ({excludes.length})
         </button>
+        <button
+          onClick={() => setTab('knowledge')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            tab === 'knowledge'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {tk('repo.tab')}
+        </button>
       </div>
+
+      {tab === 'knowledge' && repo && <RepoKnowledgeTab repoId={repo.id} repoPath={repo.path} />}
 
       {/* Tab content */}
       {tab === 'managed' && (

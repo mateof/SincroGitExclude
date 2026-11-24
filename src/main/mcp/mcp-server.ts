@@ -1,11 +1,13 @@
 import { createServer, type Server } from 'http'
-import { app } from 'electron'
+import { app, powerSaveBlocker } from 'electron'
 import log from 'electron-log'
 import { pushEvent } from '../events'
 import { lanAddresses } from '../server/http-server'
 import { buildMcpServer } from './build-server'
 import { createMcpApp } from './mcp-app'
 import { MCP_PATH, readMcpConfig } from './mcp-config'
+import { resolveGrant } from './mcp-grants'
+import { mcpGetRoutes } from './mcp-routes'
 
 export interface McpStatus {
   running: boolean
@@ -16,6 +18,18 @@ export interface McpStatus {
 class McpHttpServer {
   private server: Server | null = null
   private port: number | null = null
+  private sleepBlocker: number | null = null
+
+  applySleepPolicy(): void {
+    const config = readMcpConfig()
+    const want = this.server !== null && config.bindAll && config.preventSleep
+    if (want && this.sleepBlocker === null) {
+      this.sleepBlocker = powerSaveBlocker.start('prevent-app-suspension')
+    } else if (!want && this.sleepBlocker !== null) {
+      powerSaveBlocker.stop(this.sleepBlocker)
+      this.sleepBlocker = null
+    }
+  }
 
   isRunning(): boolean {
     return this.server !== null
@@ -37,12 +51,17 @@ class McpHttpServer {
 
     const handler = createMcpApp({
       path: MCP_PATH,
-      getToken: () => readMcpConfig().token,
-      buildServer: () => {
+      authenticate: (header) => {
+        const current = readMcpConfig()
+        return resolveGrant(header, current.token, current.tokens)
+      },
+      getRoutes: mcpGetRoutes(),
+      buildServer: (grant) => {
         const current = readMcpConfig()
         return buildMcpServer({
           version: app.getVersion(),
           readOnly: current.readOnly,
+          grant,
           onWrite: (tool) => pushEvent('app:data-changed', { source: 'mcp', tool }),
           selfStatus: () => ({ ...this.getStatus(), readOnly: current.readOnly, bindAll: current.bindAll })
         })
@@ -68,6 +87,7 @@ class McpHttpServer {
     this.server = server
     this.port = config.port
     log.info(`MCP server listening on ${host}:${config.port}${MCP_PATH} (readOnly: ${config.readOnly})`)
+    this.applySleepPolicy()
     return this.getStatus()
   }
 
@@ -76,6 +96,7 @@ class McpHttpServer {
     const server = this.server
     this.server = null
     this.port = null
+    this.applySleepPolicy()
     await new Promise<void>((resolve) => {
       server.close(() => resolve())
       server.closeAllConnections?.()

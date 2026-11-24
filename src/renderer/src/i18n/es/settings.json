@@ -199,6 +199,21 @@
       "merge": "Si el fichero ya existe, añade esta entrada a las que tenga en lugar de sustituirlo entero.",
       "nodeRequired": "Claude Desktop solo admite servidores locales por consola, así que usa el puente mcp-remote: necesita Node.js instalado. Reinicia Claude Desktop después de guardar.",
       "antigravity": "Desde junio de 2026, Gemini CLI se sustituyó por Antigravity CLI en las cuentas gratuitas y de Google One."
+    },
+    "preventSleep": "Impedir que el equipo se suspenda mientras el MCP está abierto a la red",
+    "preventSleepHint": "Así los demás equipos pueden usar la base de conocimiento aunque este no se use.",
+    "tokens": {
+      "title": "Tokens por dispositivo",
+      "hint": "Crea un token para cada equipo o asistente, con solo los permisos que necesita. Así puedes dar acceso a la memoria sin dar acceso a los ficheros gestionados, y revocarlo por separado.",
+      "add": "Nuevo token",
+      "namePlaceholder": "Nombre (p. ej. Portátil Windows)",
+      "scopesHint": "kb = base de conocimiento, sge = ficheros gestionados. read = consultar, write = cambiar.",
+      "create": "Crear token",
+      "created": "Token creado. Los comandos de abajo ya lo usan:",
+      "primary": "Token principal",
+      "allScopes": "todos los permisos",
+      "revoke": "Revocar",
+      "revokeConfirm": "¿Revocar este token? El equipo que lo use perderá el acceso."
     }
   }
 }

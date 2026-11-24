@@ -9,6 +9,7 @@ import { LogViewer } from '@/components/settings/LogViewer'
 import { WebServerSettings } from '@/components/settings/WebServerSettings'
 import { SyncSettings } from '@/components/settings/SyncSettings'
 import { McpSettings } from '@/components/settings/McpSettings'
+import { KnowledgeSettings } from '@/components/settings/KnowledgeSettings'
 import {
   Globe,
   Download,
@@ -370,6 +371,8 @@ export function SettingsPage() {
         <SyncSettings />
 
         <McpSettings />
+
+        <KnowledgeSettings />
 
         {/* Tags Management */}
         <div className="bg-card border border-border rounded-xl p-4">

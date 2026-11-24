@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import type { IpcResult } from '@/types'
 import { copyText } from '@/lib/clipboard'
+import { McpTokens, type McpTokenView } from './McpTokens'
 
 type Shell = 'bash' | 'powershell' | 'cmd'
 
@@ -23,7 +24,9 @@ interface McpState {
   port: number
   bindAll: boolean
   readOnly: boolean
+  preventSleep: boolean
   token: string
+  tokens: McpTokenView[]
   defaultPort: number
   platform: string
   running: boolean
@@ -57,6 +60,7 @@ export function McpSettings() {
   const [shell, setShell] = useState<Shell>('bash')
   const [clients, setClients] = useState<ClientSnippet[]>([])
   const [clientId, setClientId] = useState('claude-code')
+  const [tokenId, setTokenId] = useState<string | null>(null)
 
   const apply = useCallback((result: IpcResult<McpState>) => {
     if (result?.success && result.data) {
@@ -79,10 +83,10 @@ export function McpSettings() {
 
   useEffect(() => {
     if (!url || !state) return
-    window.api.invoke<IpcResult<ClientSnippet[]>>('mcp:clients', url, shell).then((result) => {
+    window.api.invoke<IpcResult<ClientSnippet[]>>('mcp:clients', url, shell, tokenId ?? undefined).then((result) => {
       if (result.success && result.data) setClients(result.data)
     })
-  }, [url, shell, state?.token])
+  }, [url, shell, state?.token, tokenId])
 
   const run = async (channel: string, ...args: unknown[]) => {
     setBusy(true)
@@ -187,6 +191,21 @@ export function McpSettings() {
             <span>{t('mcp.networkWarning')}</span>
           </div>
         )}
+        {state.bindAll && (
+          <label className="flex items-start gap-2 text-xs cursor-pointer">
+            <input
+              type="checkbox"
+              checked={state.preventSleep}
+              disabled={busy}
+              onChange={(e) => run('mcp:set-config', { preventSleep: e.target.checked })}
+              className="mt-0.5"
+            />
+            <span>
+              {t('mcp.preventSleep')}
+              <span className="block text-[11px] text-muted-foreground">{t('mcp.preventSleepHint')}</span>
+            </span>
+          </label>
+        )}
       </div>
 
       <div className="mb-4">
@@ -224,6 +243,13 @@ export function McpSettings() {
           </button>
         </div>
       </div>
+
+      <McpTokens
+        tokens={state.tokens ?? []}
+        selected={tokenId}
+        onSelect={setTokenId}
+        onChanged={() => void window.api.invoke<IpcResult<McpState>>('mcp:get-state').then(apply)}
+      />
 
       <div className="border-t border-border pt-3">
         <h4 className="text-xs font-semibold mb-1">{t('mcp.connectTitle')}</h4>

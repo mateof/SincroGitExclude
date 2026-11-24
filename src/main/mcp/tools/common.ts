@@ -2,16 +2,28 @@ import type { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { invokeChannel } from '../../ipc/channel-registry'
+import type { McpGrant } from '../mcp-grants'
 
 export const MAX_TEXT = 100_000
 
 export class ToolFailure extends Error {}
 
+export type ToolArea = 'sge' | 'kb'
+
 export interface ToolContext {
   server: McpServer
   readOnly: boolean
+  grant: McpGrant
   onWrite: (tool: string) => void
   selfStatus: () => Record<string, unknown>
+}
+
+export function canRead(ctx: ToolContext, area: ToolArea): boolean {
+  return ctx.grant.scopes.has(`${area}:read`) || ctx.grant.scopes.has(`${area}:write`)
+}
+
+export function canWrite(ctx: ToolContext, area: ToolArea): boolean {
+  return !ctx.readOnly && ctx.grant.scopes.has(`${area}:write`)
 }
 
 export async function call<T = unknown>(channel: string, ...args: unknown[]): Promise<T> {
@@ -81,8 +93,9 @@ export function readTool<S extends z.ZodRawShape>(
   name: string,
   config: ToolConfig<S>,
   handler: (args: Args<S>) => Promise<unknown>,
-  options: { openWorld?: boolean } = {}
+  options: { openWorld?: boolean; area?: ToolArea } = {}
 ): void {
+  if (!canRead(ctx, options.area ?? 'sge')) return
   register(ctx, name, config, { readOnlyHint: true, openWorldHint: options.openWorld ?? false }, handler)
 }
 
@@ -91,9 +104,9 @@ export function writeTool<S extends z.ZodRawShape>(
   name: string,
   config: ToolConfig<S>,
   handler: (args: Args<S>) => Promise<unknown>,
-  options: { destructive?: boolean; idempotent?: boolean; openWorld?: boolean } = {}
+  options: { destructive?: boolean; idempotent?: boolean; openWorld?: boolean; area?: ToolArea } = {}
 ): void {
-  if (ctx.readOnly) return
+  if (!canWrite(ctx, options.area ?? 'sge')) return
   register(
     ctx,
     name,
