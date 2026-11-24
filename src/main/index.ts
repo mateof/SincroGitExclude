@@ -22,6 +22,7 @@ import { KbSyncService } from './kb/kb-sync-service'
 import { KbRepoService } from './kb/kb-repo-service'
 import { KbCryptoService } from './kb/kb-crypto-service'
 import { SemanticService } from './kb/semantic/semantic-service'
+import { UpdateService } from './update/update-service'
 import { setKbNoteProvider } from './mcp/mcp-routes'
 import { mcpServer } from './mcp/mcp-server'
 import { readMcpConfig } from './mcp/mcp-config'
@@ -41,6 +42,7 @@ let snapshotService: SnapshotService | null = null
 let kbService: KbService | null = null
 let kbSyncService: KbSyncService | null = null
 let semanticService: SemanticService | null = null
+const updateService = new UpdateService()
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -187,6 +189,7 @@ app.whenReady().then(async () => {
     kbRepoService,
     kbCryptoService,
     semanticService,
+    updateService,
     applyPreferences
   })
 
@@ -258,6 +261,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', async () => {
+  updateService.dispose()
   await mcpServer.stop()
   await webServer.stop()
   if (watcherService) {

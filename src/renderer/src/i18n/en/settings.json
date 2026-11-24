@@ -112,6 +112,20 @@
     "upToDate": "Up to date ({{version}})",
     "checkAgain": "Check again",
     "checkError": "Could not check for updates. Click to retry.",
+    "updateNow": "Update",
+    "restart": "Restart and install",
+    "cancel": "Cancel",
+    "downloading": "Downloading... {{percent}}%",
+    "verifying": "Verifying the download...",
+    "readyHint": "Downloaded and verified. The app will close and open again with the new version.",
+    "installing": "Installing. The app will open again.",
+    "failed": "Could not update: {{error}}",
+    "installFailed": "The last installation did not finish and you are still on the previous version. If macOS blocked it, allow SincroGitExclude in System Settings > Privacy & Security > App Management.",
+    "blocked": {
+      "translocated": "To update from here, move the app to the Applications folder and open it again.",
+      "disk-image": "To update from here, copy the app to the Applications folder.",
+      "not-writable": "There is no permission to replace the app. Download it and install it by hand."
+    },
     "channel": {
       "label": "Channel",
       "stable": "Stable",

@@ -50,6 +50,8 @@ To fix this, run the following command after installing:
 xattr -cr /Applications/SincroGitExclude.app
 ```
 
+To update later, use **Settings > About > Update**: the app downloads the new version, verifies it and replaces itself, so these steps are only needed for the first installation.
+
 ### Prereleases
 
 Test builds are published as GitHub prereleases on two channels:
