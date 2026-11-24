@@ -11,6 +11,7 @@ files:
   - '!node_modules/@img/**'
   - '!node_modules/onnxruntime-node/bin/napi-v*/!(${platform})/**'
   - '!node_modules/onnxruntime-node/bin/napi-v*/*/!(${arch})/**'
+  - '!node_modules/onnxruntime-node/bin/**/libonnxruntime_providers_{cuda,tensorrt}*'
 npmRebuild: true
 asarUnpack:
   - 'node_modules/better-sqlite3/**'
