@@ -4,7 +4,7 @@ import log from 'electron-log'
 import { DEFAULT_DATA_DIR } from '../../app-paths'
 import { pushEvent } from '../../events'
 import type { KbService } from '../kb-service'
-import { DEFAULT_LOCAL_MODEL, LOCAL_MODELS, modelSlug, presetFor } from './models'
+import { DEFAULT_LOCAL_MODEL, modelOptions, modelSlug, presetFor, type LocalModelOption } from './models'
 import { OllamaEmbedder, OpenAiEmbedder, type Embedder } from './providers'
 import { LocalEmbedder } from './local-embedder'
 import { chunkRefs, VectorStore } from './vector-store'
@@ -42,8 +42,8 @@ export class SemanticService {
 
   constructor(private readonly kb: KbService) {}
 
-  getConfig(): KbSemanticConfig & { models: typeof LOCAL_MODELS } {
-    return { ...this.config, models: LOCAL_MODELS }
+  getConfig(): KbSemanticConfig & { models: LocalModelOption[] } {
+    return { ...this.config, models: modelOptions() }
   }
 
   async setConfig(next: KbSemanticConfig): Promise<KbSemanticStatus> {

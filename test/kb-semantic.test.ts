@@ -5,7 +5,7 @@ import { dirname, join } from 'path'
 import { SpaceIndex } from '../src/main/kb/index/space-index'
 import { chunkRefs, fuseRrf, VectorStore } from '../src/main/kb/semantic/vector-store'
 import { OllamaEmbedder, OpenAiEmbedder } from '../src/main/kb/semantic/providers'
-import { LOCAL_MODELS, presetFor } from '../src/main/kb/semantic/models'
+import { LOCAL_MODELS, modelOptions, presetFor } from '../src/main/kb/semantic/models'
 
 let root: string
 let cache: string
@@ -137,5 +137,12 @@ describe('embedding providers', () => {
   it('offers multilingual local models with the prompts each one expects', () => {
     expect(LOCAL_MODELS.length).toBeGreaterThan(1)
     expect(presetFor('onnx-community/embeddinggemma-300m-ONNX')?.queryPrefix).toBe('task: search result | query: ')
+  })
+})
+
+describe('models offered in the settings', () => {
+  it('can travel to the window, which cannot receive functions', () => {
+    expect(structuredClone(modelOptions())).toEqual(modelOptions())
+    expect(modelOptions().map((m) => m.id)).toEqual(LOCAL_MODELS.map((m) => m.id))
   })
 })

@@ -31,6 +31,12 @@ export const LOCAL_MODELS: LocalModelPreset[] = [
 
 export const DEFAULT_LOCAL_MODEL = LOCAL_MODELS[0].id
 
+export type LocalModelOption = Pick<LocalModelPreset, 'id' | 'label' | 'dims' | 'sizeMb'>
+
+export function modelOptions(): LocalModelOption[] {
+  return LOCAL_MODELS.map(({ id, label, dims, sizeMb }) => ({ id, label, dims, sizeMb }))
+}
+
 export function presetFor(model: string): LocalModelPreset | null {
   return LOCAL_MODELS.find((m) => m.id === model) ?? null
 }
