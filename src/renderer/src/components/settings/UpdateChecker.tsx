@@ -1,101 +1,38 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpCircle, Download, ExternalLink, RefreshCw, RotateCw, X } from 'lucide-react'
-import {
-  CHANNELS,
-  channelOf,
-  compareVersions,
-  isChannel,
-  pickRelease,
-  type Channel
-} from '../../../../shared/update-channels'
+import { availableUpdate, useUpdateStore } from '@/stores/update-store'
+import { CHANNELS, channelOf } from '../../../../shared/update-channels'
 
-import type { UpdateCapability, UpdateState } from '../../../../shared/update-types'
-
-const GITHUB_REPO = 'mateof/SincroGitExclude'
 const UPDATE_BLOCKERS = ['translocated', 'disk-image', 'not-writable']
 
 interface UpdateCheckerProps {
   currentVersion: string
 }
 
-interface Reply<T> {
-  success: boolean
-  data?: T
-  error?: string
-}
-
-interface ReleaseInfo {
-  tag_name: string
-  html_url: string
-  draft?: boolean
-}
-
-function loadChannel(currentVersion: string): Channel {
-  const stored = localStorage.getItem('updateChannel')
-  if (isChannel(stored)) return stored
-  // A prerelease build follows its own channel until told otherwise, so a dev
-  // install keeps getting dev builds without touching settings first.
-  return channelOf(currentVersion)
-}
-
 export function UpdateChecker({ currentVersion }: UpdateCheckerProps) {
   const { t } = useTranslation('settings')
-  const [channel, setChannel] = useState<Channel>(() => loadChannel(currentVersion))
-  const [checking, setChecking] = useState(false)
-  const [release, setRelease] = useState<ReleaseInfo | null>(null)
-  const [hasUpdate, setHasUpdate] = useState(false)
-  const [error, setError] = useState(false)
-  const [checked, setChecked] = useState(false)
-  const [capability, setCapability] = useState<UpdateCapability | null>(null)
-  const [update, setUpdate] = useState<UpdateState | null>(null)
-  const [updateError, setUpdateError] = useState<string | null>(null)
+  const store = useUpdateStore()
+  const { channel, checking, capability, progress: update, actionError: updateError, reveal, clearReveal, setChannel } = store
+  const runUpdate = store.run
+  const checkForUpdates = store.check
+  const release = availableUpdate(store)
+  const error = store.lastCheck?.ok === false
+  const checked = store.releases !== null
+  const root = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    void window.api.invoke<Reply<UpdateCapability>>('update:capability').then((r) => setCapability(r.data ?? null))
-    void window.api.invoke<Reply<UpdateState>>('update:state').then((r) => setUpdate(r.data ?? null))
-    return window.api.on('update:state', (state) => setUpdate(state as UpdateState))
+    const { init, check } = useUpdateStore.getState()
+    void init()
+      .then(check)
+      .catch(() => undefined)
   }, [])
 
-  const runUpdate = async (action: 'download' | 'cancel' | 'install', version?: string) => {
-    setUpdateError(null)
-    const reply = await window.api.invoke<Reply<UpdateState>>(`update:${action}`, ...(version ? [version] : []))
-    if (!reply.success) setUpdateError(reply.error ?? '')
-  }
-
-  const checkForUpdates = useCallback(async () => {
-    setChecking(true)
-    setError(false)
-    try {
-      // The whole list, not /releases/latest: that endpoint never returns a
-      // prerelease, so beta and dev would always look up to date.
-      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=30`)
-      if (!res.ok) throw new Error('Failed to fetch')
-      const releases: ReleaseInfo[] = await res.json()
-
-      const newest = pickRelease(releases, channel)
-      setRelease(newest)
-      setHasUpdate(!!newest && compareVersions(currentVersion, newest.tag_name) < 0)
-      setChecked(true)
-    } catch {
-      setError(true)
-    } finally {
-      setChecking(false)
-    }
-  }, [channel, currentVersion])
-
   useEffect(() => {
-    checkForUpdates()
-  }, [checkForUpdates])
-
-  const handleChannelChange = (value: Channel) => {
-    if (value === channel) return
-    localStorage.setItem('updateChannel', value)
-    setChecked(false)
-    setRelease(null)
-    setHasUpdate(false)
-    setChannel(value)
-  }
+    if (!reveal) return
+    root.current?.scrollIntoView({ block: 'center' })
+    clearReveal()
+  }, [reveal, clearReveal])
 
   const selector = (
     <div className="flex items-center gap-2 flex-wrap">
@@ -104,7 +41,7 @@ export function UpdateChecker({ currentVersion }: UpdateCheckerProps) {
         {CHANNELS.map((value) => (
           <button
             key={value}
-            onClick={() => handleChannelChange(value)}
+            onClick={() => setChannel(value)}
             title={t(`update.channel.${value}Hint`)}
             className={`px-2.5 py-1 text-[11px] rounded-lg transition-colors ${
               channel === value
@@ -128,17 +65,17 @@ export function UpdateChecker({ currentVersion }: UpdateCheckerProps) {
         {t('update.checking')}
       </div>
     )
-  } else if (error) {
+  } else if (error && !release) {
     status = (
       <button
-        onClick={checkForUpdates}
+        onClick={() => void checkForUpdates()}
         className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <RefreshCw className="w-3.5 h-3.5" />
         {t('update.checkError')}
       </button>
     )
-  } else if (hasUpdate && release) {
+  } else if (release) {
     const latestVersion = release.tag_name.replace(/^v/, '')
     const latestChannel = channelOf(release.tag_name)
     const phase = capability?.supported && update?.version === latestVersion ? update.phase : 'idle'
@@ -229,7 +166,7 @@ export function UpdateChecker({ currentVersion }: UpdateCheckerProps) {
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>{t('update.upToDate', { version: currentVersion })}</span>
         <button
-          onClick={checkForUpdates}
+          onClick={() => void checkForUpdates()}
           disabled={checking}
           className="p-0.5 rounded hover:bg-secondary transition-colors"
           title={t('update.checkAgain')}
@@ -241,7 +178,7 @@ export function UpdateChecker({ currentVersion }: UpdateCheckerProps) {
   }
 
   return (
-    <div className="space-y-2">
+    <div ref={root} className="space-y-2">
       {selector}
       {status}
     </div>

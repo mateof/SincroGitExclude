@@ -297,6 +297,16 @@ The application will restart after changing the data location.
 
 Shows the application version and a link to the GitHub repository. The update checker automatically verifies if a newer version is available.
 
+#### Notice of a new version
+
+The app looks for new versions at the start and every two hours. When it finds one, a notice in the app window offers:
+
+- **Update**: opens the update in Settings and, on macOS, starts the download. Restarting to install it is still up to you. On Windows and Linux, download it from there.
+- **Later** (also Esc): no notices for a day.
+- **Dismiss**: no more notices about that version. It stays available in Settings, and the next version is announced.
+
+It waits while you type, while another dialog is open and while you are in Settings.
+
 #### Update channel
 
 Choose which releases the update checker looks at. Each channel also includes the ones above it:

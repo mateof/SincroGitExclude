@@ -7,6 +7,7 @@ import { useRepoStore } from '@/stores/repo-store'
 import { usePreferencesStore, type Preferences } from '@/stores/preferences-store'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
+import { UpdateNotice } from './UpdateNotice'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { FileDetailPage } from '@/pages/FileDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -157,6 +158,7 @@ export function MainLayout() {
         </main>
       </div>
       <QuickSwitcher />
+      <UpdateNotice />
       {settingsSpace && <SpaceDialog key={settingsSpace.id} space={settingsSpace} onClose={() => setSettingsSpaceId(null)} />}
     </div>
   )

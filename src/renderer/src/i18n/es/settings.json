@@ -134,6 +134,16 @@
       "stableHint": "Solo versiones finales. Recomendado.",
       "betaHint": "Candidatas a version final antes de pasar a estable.",
       "devHint": "Builds de prueba publicadas desde una pull request. Pueden ser inestables."
+    },
+    "notice": {
+      "title": "Hay una versión nueva: {{version}}",
+      "current": "Tienes la {{version}}",
+      "published": "publicada el {{date}}",
+      "changes": "Ver qué cambia",
+      "snooze": "Posponer",
+      "dismiss": "Descartar",
+      "snoozeHint": "Posponer: te avisaré de nuevo dentro de un día.",
+      "dismissHint": "Descartar: no volveré a avisar de esta versión. Seguirá en los Ajustes."
     }
   },
   "webServer": {
