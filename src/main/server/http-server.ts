@@ -32,7 +32,7 @@ export interface ServerStatus {
 }
 
 /** Every non-internal IPv4 address, so Settings can show a URL that works from another machine. */
-function lanAddresses(): string[] {
+export function lanAddresses(): string[] {
   const found: string[] = []
   for (const addresses of Object.values(networkInterfaces())) {
     for (const address of addresses || []) {

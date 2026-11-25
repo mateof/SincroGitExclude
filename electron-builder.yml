@@ -3,18 +3,28 @@ productName: SincroGitExclude
 directories:
   buildResources: resources
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.*'
-  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - 'out/**/*'
+  - 'package.json'
+  - 'LICENSE'
+  - '!node_modules/onnxruntime-web/**'
+  - '!node_modules/sharp/**'
+  - '!node_modules/@img/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v*/!(${platform})/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v*/*/!(${arch})/**'
+  - '!node_modules/onnxruntime-node/bin/**/libonnxruntime_providers_{cuda,tensorrt}*'
 npmRebuild: true
 asarUnpack:
   - 'node_modules/better-sqlite3/**'
+  - 'node_modules/onnxruntime-node/**'
 mac:
   executableName: SincroGitExclude
   target:
     - dmg
   category: public.app-category.developer-tools
+  identity: '-'
+  hardenedRuntime: false
+  extendInfo:
+    NSLocalNetworkUsageDescription: SincroGitExclude connects to git remotes on your local network, such as a repository on a NAS.
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
 linux:

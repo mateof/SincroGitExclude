@@ -162,6 +162,107 @@ const migrations: Migration[] = [
       SELECT lower(hex(randomblob(16))), repo_path
       FROM (SELECT DISTINCT repo_path FROM deployments);
     `
+  },
+  {
+    version: 11,
+    description: 'Remote sync: metadata timestamp on files and tombstones for deleted files',
+    up: `
+      ALTER TABLE files ADD COLUMN meta_updated_at TEXT;
+      UPDATE files SET meta_updated_at = updated_at;
+
+      CREATE TABLE IF NOT EXISTS sync_tombstones (
+        file_id TEXT PRIMARY KEY,
+        deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `
+  },
+  {
+    version: 12,
+    description: 'Knowledge base: spaces, repo links, audit, sync and crypto state',
+    up: `
+      CREATE TABLE IF NOT EXISTS kb_spaces (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        local_path TEXT NOT NULL UNIQUE,
+        parent_id TEXT REFERENCES kb_spaces(id) ON DELETE SET NULL,
+        backend TEXT NOT NULL DEFAULT 'none',
+        backend_config TEXT NOT NULL DEFAULT '{}',
+        sync_interval_min INTEGER NOT NULL DEFAULT 0,
+        sync_on_write INTEGER NOT NULL DEFAULT 0,
+        auto_commit_external INTEGER NOT NULL DEFAULT 0,
+        agent_write INTEGER NOT NULL DEFAULT 1,
+        review_before_push INTEGER NOT NULL DEFAULT 0,
+        shared INTEGER NOT NULL DEFAULT 0,
+        encrypted INTEGER NOT NULL DEFAULT 0,
+        last_sync_at TEXT,
+        last_sync_status TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS kb_repo_links (
+        repo_id TEXT PRIMARY KEY REFERENCES repos(id) ON DELETE CASCADE,
+        space_id TEXT NOT NULL REFERENCES kb_spaces(id) ON DELETE CASCADE,
+        note_path TEXT NOT NULL,
+        integrations TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS kb_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        at TEXT NOT NULL DEFAULT (datetime('now')),
+        source TEXT NOT NULL,
+        token_name TEXT,
+        tool TEXT,
+        space_id TEXT NOT NULL REFERENCES kb_spaces(id) ON DELETE CASCADE,
+        path TEXT NOT NULL,
+        hash_before TEXT,
+        hash_after TEXT,
+        before_content BLOB,
+        review_state TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_kb_audit_space ON kb_audit(space_id, at);
+      CREATE INDEX IF NOT EXISTS idx_kb_audit_review ON kb_audit(space_id, review_state);
+
+      CREATE TABLE IF NOT EXISTS kb_sync_state (
+        space_id TEXT NOT NULL REFERENCES kb_spaces(id) ON DELETE CASCADE,
+        path TEXT NOT NULL,
+        local_hash TEXT,
+        remote_hash TEXT,
+        remote_size INTEGER,
+        remote_mtime INTEGER,
+        PRIMARY KEY (space_id, path)
+      );
+
+      CREATE TABLE IF NOT EXISTS kb_crypto_state (
+        space_id TEXT PRIMARY KEY REFERENCES kb_spaces(id) ON DELETE CASCADE,
+        crypto_space_id TEXT NOT NULL,
+        device_id TEXT,
+        last_seq INTEGER NOT NULL DEFAULT 0,
+        last_manifest_hash TEXT,
+        last_epoch INTEGER NOT NULL DEFAULT 0,
+        trusted_signers TEXT NOT NULL DEFAULT '[]'
+      );
+    `
+  },
+  {
+    version: 13,
+    description: 'Knowledge base: log of the syncs of each space',
+    up: `
+      CREATE TABLE IF NOT EXISTS kb_sync_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        space_id TEXT NOT NULL REFERENCES kb_spaces(id) ON DELETE CASCADE,
+        first_at TEXT NOT NULL,
+        at TEXT NOT NULL,
+        repeats INTEGER NOT NULL DEFAULT 1,
+        started_by TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        report TEXT NOT NULL,
+        totals TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_kb_sync_log_space ON kb_sync_log(space_id, id);
+    `
   }
 ]
 

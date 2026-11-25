@@ -1,6 +1,8 @@
 import simpleGit, { SimpleGit, LogResult } from 'simple-git'
-import { existsSync } from 'fs'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import log from 'electron-log'
+import { GIT_BINARY, execGitText, readBlobsBatch, readBlobWithFilters } from './git-exec'
 
 export interface CommitLogEntry {
   hash: string
@@ -9,21 +11,7 @@ export interface CommitLogEntry {
   tag?: string
 }
 
-function findGitBinary(): string | undefined {
-  if (process.platform === 'darwin') {
-    const candidates = [
-      '/opt/homebrew/bin/git',  // Apple Silicon
-      '/usr/local/bin/git',     // Intel Homebrew
-      '/usr/bin/git'            // Xcode CLI tools
-    ]
-    for (const p of candidates) {
-      if (existsSync(p)) return p
-    }
-  }
-  return undefined
-}
-
-const gitBinary = findGitBinary()
+const gitBinary = GIT_BINARY
 
 export class GitService {
   private locks: Map<string, Promise<void>> = new Map()
@@ -45,6 +33,7 @@ export class GitService {
       return await fn()
     } finally {
       release!()
+      if (this.locks.get(repoPath) === newLock) this.locks.delete(repoPath)
     }
   }
 
@@ -61,6 +50,12 @@ export class GitService {
   }
 
   async ensureCoreFileMode(repoPath: string): Promise<void> {
+    try {
+      const config = readFileSync(join(repoPath, '.git', 'config'), 'utf-8')
+      if (/^\s*filemode\s*=\s*false\s*$/im.test(config)) return
+    } catch {
+      return
+    }
     const git = this.getGit(repoPath)
     try {
       await git.addConfig('core.fileMode', 'false')
@@ -94,6 +89,14 @@ export class GitService {
       await git.checkoutBranch(branchName, 'HEAD')
     } catch {
       await git.checkout(['-b', branchName])
+    }
+  }
+
+  async createBranchRef(repoPath: string, branchName: string, startPoint?: string): Promise<void> {
+    try {
+      await execGitText(['branch', branchName, startPoint ?? 'HEAD'], { cwd: repoPath })
+    } catch {
+      await this.createBranch(repoPath, branchName, startPoint)
     }
   }
 
@@ -143,9 +146,9 @@ export class GitService {
     return result.commit
   }
 
-  async addTag(repoPath: string, tagName: string): Promise<void> {
+  async addTag(repoPath: string, tagName: string, target?: string): Promise<void> {
     const git = this.getGit(repoPath)
-    await git.tag([tagName])
+    await git.tag(target ? [tagName, target] : [tagName])
   }
 
   async getLog(repoPath: string, branch?: string): Promise<CommitLogEntry[]> {
@@ -158,18 +161,7 @@ export class GitService {
     try {
       const logResult: LogResult = await git.log(args.length > 0 ? args : undefined)
 
-      // Get tags to match with commits
-      const tagsRaw = await git.tags()
-      const tagMap = new Map<string, string>()
-
-      for (const tagName of tagsRaw.all) {
-        try {
-          const tagHash = await git.revparse([tagName])
-          tagMap.set(tagHash.trim(), tagName)
-        } catch {
-          // ignore
-        }
-      }
+      const tagMap = await this.getTagMap(repoPath)
 
       return logResult.all.map((entry) => ({
         hash: entry.hash,
@@ -180,6 +172,34 @@ export class GitService {
     } catch {
       return []
     }
+  }
+
+  async getTagMap(repoPath: string): Promise<Map<string, string>> {
+    const tagMap = new Map<string, string>()
+    const raw = await execGitText(
+      ['for-each-ref', '--format=%(objectname) %(*objectname) %(refname:short)', 'refs/tags'],
+      { cwd: repoPath }
+    ).catch(() => '')
+    for (const line of raw.split('\n')) {
+      const [direct, peeled, ...name] = line.split(' ')
+      if (!direct || name.length === 0) continue
+      tagMap.set(peeled || direct, name.join(' '))
+    }
+    return tagMap
+  }
+
+  async readFiles(repoPath: string, rev: string, paths: string[]): Promise<Map<string, Buffer>> {
+    return readBlobsBatch(repoPath, rev, paths)
+  }
+
+  async readFileForCheckout(repoPath: string, rev: string, path: string): Promise<Buffer> {
+    return readBlobWithFilters(repoPath, rev, path)
+  }
+
+  async getBranchHead(repoPath: string, branch: string): Promise<string> {
+    return (
+      await execGitText(['rev-parse', '--verify', `refs/heads/${branch}^{commit}`], { cwd: repoPath })
+    ).trim()
   }
 
   async getHeadHash(repoPath: string): Promise<string> {

@@ -9,7 +9,11 @@ const BUILTIN_IGNORED_DIRS = new Set(['.git', '.svn', '.hg'])
  * filtering out any paths matching the provided ignore patterns.
  * Always ignores .git, .svn, .hg directories.
  */
-export function scanDirectory(basePath: string, ignorePatterns: string[] = []): string[] {
+export function scanDirectory(
+  basePath: string,
+  ignorePatterns: string[] = [],
+  startDir: string = basePath
+): string[] {
   const result: string[] = []
 
   function walk(dir: string): void {
@@ -37,7 +41,7 @@ export function scanDirectory(basePath: string, ignorePatterns: string[] = []): 
     }
   }
 
-  walk(basePath)
+  walk(startDir)
   return result
 }
 
@@ -95,12 +99,41 @@ function matchesPattern(relPath: string, pattern: string): boolean {
 /**
  * Simple glob matching supporting * and **
  */
-function globMatch(str: string, pattern: string): boolean {
-  const regexStr = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*\*/g, '\x00')
-    .replace(/\*/g, '[^/]*')
-    .replace(/\x00/g, '.*')
+const globCache = new Map<string, RegExp>()
 
-  return new RegExp('^' + regexStr + '$').test(str)
+function globMatch(str: string, pattern: string): boolean {
+  let regex = globCache.get(pattern)
+  if (!regex) {
+    const regexStr = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*\*/g, '\x00')
+      .replace(/\*/g, '[^/]*')
+      .replace(/\x00/g, '.*')
+    regex = new RegExp('^' + regexStr + '$')
+    globCache.set(pattern, regex)
+  }
+  return regex.test(str)
+}
+
+export function toGitignoreLines(patterns: string[]): string[] {
+  const lines = [...BUILTIN_IGNORED_DIRS].filter((d) => d !== '.git').map((d) => `${d}/`)
+  for (const raw of patterns) {
+    const p = raw.trim()
+    if (!p || p.startsWith('#') || p.startsWith('/')) continue
+    const escaped = p.startsWith('!') ? `\\${p}` : p
+    const isDir = escaped.endsWith('/')
+    const body = isDir ? escaped.slice(0, -1) : escaped
+    if (!body) continue
+    const simpleName = !body.includes('/') && !body.includes('*')
+    if (isDir && simpleName) {
+      lines.push(`${body}/`)
+    } else if (!isDir && body.includes('*') && !body.includes('/')) {
+      lines.push(body)
+    } else if (body.startsWith('**/')) {
+      lines.push(isDir ? `${body}/` : body)
+    } else {
+      lines.push(isDir ? `/${body}/` : `/${body}`)
+    }
+  }
+  return lines
 }

@@ -1,17 +1,26 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useUIStore } from '@/stores/ui-store'
 import { useFileStore } from '@/stores/file-store'
 import { useWatcherStore } from '@/stores/watcher-store'
 import { useDeploymentStore } from '@/stores/deployment-store'
 import { useRepoStore } from '@/stores/repo-store'
+import { usePreferencesStore, type Preferences } from '@/stores/preferences-store'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
+import { UpdateNotice } from './UpdateNotice'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { FileDetailPage } from '@/pages/FileDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { RepoDetailPage } from '@/pages/RepoDetailPage'
+import { KnowledgePage } from '@/pages/KnowledgePage'
+import { SpaceDialog } from '@/components/kb/SpaceDialog'
+import { QuickSwitcher } from '@/components/kb/QuickSwitcher'
+import { useKbStore } from '@/stores/kb-store'
+import type { KbSemanticStatus, KbSyncReport } from '../../../../shared/kb/types'
 
 export function MainLayout() {
+  const [settingsSpaceId, setSettingsSpaceId] = useState<string | null>(null)
+  const settingsSpace = useKbStore((st) => st.spaces.find((sp) => sp.id === settingsSpaceId))
   const { currentView, selectedFileId, selectedRepoId, deselectFile, deselectRepo } =
     useUIStore()
   const { files } = useFileStore()
@@ -39,30 +48,70 @@ export function MainLayout() {
     }
   }, [repoExists, currentView, selectedRepoId, repos.length])
 
-  // Sync snapshot enabled state to main process on mount
   useEffect(() => {
-    const enabled = localStorage.getItem('snapshotsEnabled') !== 'false'
-    window.api.invoke('snapshots:set-enabled', enabled)
-  }, [])
+    usePreferencesStore.getState().load()
+    const unsubPreferences = window.api.on('preferences:changed', (preferences: unknown) => {
+      usePreferencesStore.getState().receive(preferences as Preferences)
+    })
 
-  // Restore verbose logging preference on mount
-  useEffect(() => {
-    const verbose = localStorage.getItem('logVerbose') === 'true'
-    if (verbose) window.api.invoke('logs:set-verbose', true)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const unsubData = window.api.on('app:data-changed', () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        const { selectedFileId } = useUIStore.getState()
+        useFileStore.getState().loadFiles()
+        useFileStore.getState().loadTags()
+        useRepoStore.getState().loadRepos()
+        void useKbStore.getState().loadSpaces()
+        if (selectedFileId) useDeploymentStore.getState().loadDeployments(selectedFileId)
+        useWatcherStore.getState().refreshChangedFileIds()
+      }, 300)
+    })
+
+    const unsubKb = window.api.on('kb:changed', (payload: unknown) => {
+      useKbStore.getState().receiveChanged(payload as { spaceId: string; paths: string[] })
+    })
+    const unsubKbSettings = window.api.on('kb:open-space-settings', async (payload: unknown) => {
+      await useKbStore.getState().loadSpaces()
+      setSettingsSpaceId((payload as { spaceId: string }).spaceId)
+    })
+    const unsubKbSync = window.api.on('kb:sync-report', (payload: unknown) => {
+      useKbStore.getState().receiveSyncReport(payload as { spaceId: string; report: KbSyncReport })
+    })
+    const unsubKbSemantic = window.api.on('kb:semantic-status', (payload: unknown) => {
+      useKbStore.getState().receiveSemantic(payload as KbSemanticStatus)
+    })
+
+    return () => {
+      if (timer) clearTimeout(timer)
+      unsubPreferences()
+      unsubData()
+      unsubKb()
+      unsubKbSettings()
+      unsubKbSync()
+      unsubKbSemantic()
+    }
   }, [])
 
   // Subscribe to watcher events from main process
   useEffect(() => {
-    const unsubChange = window.api.on('watcher:file-changed', async (deploymentId: unknown) => {
-      const id = deploymentId as string
-      markChanged(id)
-      // Verify actual content diff via deployment store (updates hasChanges in-place)
-      const hasRealChanges = await useDeploymentStore.getState().checkChanges(id)
-      if (!hasRealChanges) {
-        clearChanged(id)
+    const unsubChange = window.api.on(
+      'watcher:file-changed',
+      async (deploymentId: unknown, computed?: unknown) => {
+        const id = deploymentId as string
+        let hasRealChanges: boolean
+        if (typeof computed === 'boolean') {
+          hasRealChanges = computed
+          useDeploymentStore.getState().updateDeploymentStatus(id, { hasChanges: computed })
+        } else {
+          markChanged(id)
+          hasRealChanges = await useDeploymentStore.getState().checkChanges(id)
+        }
+        if (hasRealChanges) markChanged(id)
+        else clearChanged(id)
+        refreshChangedFileIds()
       }
-      refreshChangedFileIds()
-    })
+    )
     const unsubDelete = window.api.on('watcher:file-deleted', (deploymentId: unknown) => {
       const id = deploymentId as string
       markDeleted(id)
@@ -80,6 +129,8 @@ export function MainLayout() {
     switch (currentView) {
       case 'settings':
         return <SettingsPage />
+      case 'knowledge':
+        return <KnowledgePage />
       case 'file-detail':
         return selectedFileId && fileExists ? (
           <FileDetailPage fileId={selectedFileId} />
@@ -102,10 +153,13 @@ export function MainLayout() {
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto bg-background">
-          {renderContent()}
+        <main className={`flex-1 bg-background ${currentView === 'knowledge' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          {currentView === 'knowledge' ? <div className="h-full overflow-y-auto">{renderContent()}</div> : renderContent()}
         </main>
       </div>
+      <QuickSwitcher />
+      <UpdateNotice />
+      {settingsSpace && <SpaceDialog key={settingsSpace.id} space={settingsSpace} onClose={() => setSettingsSpaceId(null)} />}
     </div>
   )
 }

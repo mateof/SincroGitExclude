@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next'
-import { Files, FolderGit2 } from 'lucide-react'
+import { Files, FolderGit2, Library } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 
 export function SidebarTabs() {
   const { t } = useTranslation('repos')
+  const { t: tk } = useTranslation('kb')
   const { sidebarTab, setSidebarTab } = useUIStore()
 
   return (
@@ -29,6 +30,18 @@ export function SidebarTabs() {
       >
         <FolderGit2 className="w-3.5 h-3.5" />
         {t('tabs.repos')}
+      </button>
+      <button
+        onClick={() => setSidebarTab('knowledge')}
+        title={tk('tab')}
+        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors min-w-0 ${
+          sidebarTab === 'knowledge'
+            ? 'bg-primary/10 text-primary'
+            : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+        }`}
+      >
+        <Library className="w-3.5 h-3.5 shrink-0" />
+        <span className="truncate">{tk('tab')}</span>
       </button>
     </div>
   )

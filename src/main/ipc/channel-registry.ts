@@ -21,6 +21,7 @@ const channelRegistry = new Map<string, ChannelHandler>()
  * `isWebEvent(event)` instead of assuming a real Electron event.
  */
 const NON_IPC_EVENT = { __transport: 'http' } as unknown as Electron.IpcMainInvokeEvent
+const MCP_EVENT = { __transport: 'mcp' } as unknown as Electron.IpcMainInvokeEvent
 
 /** Called by the `ipcMain.handle` wrapper in `register-all.ts`. */
 export function registerChannel(channel: string, handler: ChannelHandler): void {
@@ -41,13 +42,14 @@ export function isKnownChannel(channel: string): boolean {
  */
 export async function invokeChannel<T = unknown>(
   channel: string,
-  args: unknown[] = []
+  args: unknown[] = [],
+  transport: 'http' | 'mcp' = 'http'
 ): Promise<T> {
   const handler = channelRegistry.get(channel)
   if (!handler) {
     throw new Error(`Unknown channel: ${channel}`)
   }
-  return (await handler(NON_IPC_EVENT, ...args)) as T
+  return (await handler(transport === 'http' ? NON_IPC_EVENT : MCP_EVENT, ...args)) as T
 }
 
 /**

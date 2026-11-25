@@ -73,5 +73,9 @@
     "selectedCount_other": "{{count}} seleccionados",
     "nothingSelected": "Nada seleccionado",
     "willUseCurrent": "Se usara la carpeta actual"
+  },
+  "sidebar": {
+    "resize": "Ancho de la barra lateral",
+    "resizeHint": "Arrastra para cambiar el ancho. Doble clic para volver al original."
   }
 }

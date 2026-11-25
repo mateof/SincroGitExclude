@@ -73,5 +73,9 @@
     "selectedCount_other": "{{count}} selected",
     "nothingSelected": "Nothing selected",
     "willUseCurrent": "The current folder will be used"
+  },
+  "sidebar": {
+    "resize": "Sidebar width",
+    "resizeHint": "Drag to change the width. Double click to go back to the original."
   }
 }

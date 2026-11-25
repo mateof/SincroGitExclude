@@ -15,6 +15,22 @@ import { ExportService } from './services/export-service'
 import { ImportService } from './services/import-service'
 import { SnapshotService } from './services/snapshot-service'
 import { RepoService } from './services/repo-service'
+import { ignorePatternsOf } from './services/deployment-context'
+import { SyncService } from './sync/sync-service'
+import { KbService } from './kb/kb-service'
+import { KbSyncService } from './kb/kb-sync-service'
+import { KbRepoService } from './kb/kb-repo-service'
+import { KbCryptoService } from './kb/kb-crypto-service'
+import { KbAdminService } from './kb/kb-admin-service'
+import { ApprovalGate } from './kb/approval'
+import { askInWindow } from './kb/approval-dialog'
+import { SemanticService } from './kb/semantic/semantic-service'
+import { UpdateService } from './update/update-service'
+import { setKbNoteProvider } from './mcp/mcp-routes'
+import { mcpServer } from './mcp/mcp-server'
+import { readMcpConfig } from './mcp/mcp-config'
+import { addEventSink } from './events'
+import { readPreferences, type Preferences } from './preferences'
 import { registerAllHandlers } from './ipc/register-all'
 import { webServer } from './server/http-server'
 import { readServerConfig } from './server/config'
@@ -26,6 +42,10 @@ log.transports.console.level = 'debug'
 let mainWindow: BrowserWindow | null = null
 let watcherService: WatcherService | null = null
 let snapshotService: SnapshotService | null = null
+let kbService: KbService | null = null
+let kbSyncService: KbSyncService | null = null
+let semanticService: SemanticService | null = null
+const updateService = new UpdateService()
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -87,8 +107,50 @@ app.whenReady().then(async () => {
   const importService = new ImportService(gitExcludeService, watcherService)
   snapshotService = new SnapshotService(gitService)
   snapshotService.setDeploymentService(deploymentService)
-  watcherService.onFileChange((id, path) => snapshotService.onFileChanged(id, path))
+  watcherService.onFileChange((id, paths) => snapshotService?.onFileChanged(id, paths))
+  watcherService.setPatternResolver((deploymentId) => {
+    const row = db.prepare('SELECT file_id FROM deployments WHERE id = ?').get(deploymentId) as
+      | { file_id: string }
+      | undefined
+    return row ? ignorePatternsOf(row.file_id) : []
+  })
+  watcherService.setChangeEvaluator((deploymentId) => deploymentService.checkForChanges(deploymentId))
   const repoService = new RepoService(gitService, gitExcludeService)
+  const syncService = new SyncService(gitService, (fileId) =>
+    deploymentService.restartWatchersForFile(fileId)
+  )
+  kbService = new KbService()
+  kbSyncService = new KbSyncService(kbService)
+  const kbCryptoRef: { current: KbCryptoService | null } = { current: null }
+  const kbSync = kbSyncService
+  kbService.setHooks({
+    onLocalWrite: (spaceId, paths, origin) => kbSync.onLocalWrite(spaceId, paths, origin),
+    onExternalChange: (spaceId) => kbSync.onExternalChange(spaceId),
+    onSpacesChanged: () => kbSync.reschedule(),
+    isLocked: (spaceId) => !kbCryptoRef.current?.isUnlockedNow(spaceId)
+  })
+  const kbRepoService = new KbRepoService(kbService, repoService)
+  const kbCryptoService = new KbCryptoService(kbService, {
+    rawStoreFor: (spaceId) => kbSync.rawStoreFor(spaceId),
+    triggerSync: (spaceId) => void kbSync.syncNow(spaceId).catch(() => undefined),
+    machineName: () => kbSync.machineName()
+  })
+  kbCryptoRef.current = kbCryptoService
+  semanticService = new SemanticService(kbService)
+  const semantic = semanticService
+  kbService.setSemantic({ ready: () => semantic.ready(), search: (query, options) => semantic.search(query, options) })
+  addEventSink((channel, payload) => {
+    if (channel === 'kb:changed') semantic.onSpaceChanged((payload as { spaceId: string }).spaceId)
+  })
+  kbSync.setEncryption({
+    ensureUnlocked: (spaceId) => kbCryptoService.ensureUnlocked(spaceId),
+    canPublish: (spaceId) => kbCryptoService.canPublish(spaceId),
+    wrapStore: (spaceId, raw) => kbCryptoService.wrapStore(spaceId, raw),
+    gitMirrorStore: (spaceId, url, branch, auth) => kbCryptoService.gitMirrorStore(spaceId, url, branch, auth)
+  })
+  const kbAdminService = new KbAdminService(kbService, kbSync, new ApprovalGate(askInWindow, () => app.getLocale()))
+  const kbForRoutes = kbService
+  setKbNoteProvider(async (spaceId, notePath) => (await kbForRoutes.readRaw(spaceId, notePath)).content)
 
   // 3b. Apply core.fileMode=false to existing internal repos to avoid
   // false-positive "changed" detection due to file mode differences
@@ -107,6 +169,12 @@ app.whenReady().then(async () => {
     log.warn('Could not apply core.fileMode to existing repos:', err)
   }
 
+  const applyPreferences = (preferences: Preferences): void => {
+    snapshotService?.setEnabled(preferences.snapshotsEnabled)
+    log.transports.file.level = preferences.verboseLogs ? 'debug' : 'info'
+  }
+  applyPreferences(readPreferences().preferences)
+
   // 4. Register IPC handlers
   registerAllHandlers({
     fileService,
@@ -118,7 +186,16 @@ app.whenReady().then(async () => {
     exportService,
     importService,
     snapshotService,
-    repoService
+    repoService,
+    syncService,
+    kbService,
+    kbSyncService,
+    kbRepoService,
+    kbCryptoService,
+    semanticService,
+    kbAdminService,
+    updateService,
+    applyPreferences
   })
 
   // 5. Create window
@@ -127,6 +204,8 @@ app.whenReady().then(async () => {
 
   // 5b. Browser clients get the same push events as the desktop window
   watcherService.addEmitter((channel, ...args) => webServer.broadcast(channel, ...args))
+  addEventSink((channel, ...args) => mainWindow?.webContents.send(channel, ...args))
+  addEventSink((channel, ...args) => webServer.broadcast(channel, ...args))
 
   // 6. Start watchers for active deployments
   try {
@@ -153,6 +232,14 @@ app.whenReady().then(async () => {
     log.error('Failed to start watchers:', err)
   }
 
+  void kbService
+    .init()
+    .then(() => {
+      kbSync.start()
+      void semantic.start()
+    })
+    .catch((err) => log.error('Failed to start the knowledge base:', err))
+
   // 7. Start the web server if the user left it enabled
   try {
     if (readServerConfig().enabled) {
@@ -161,6 +248,14 @@ app.whenReady().then(async () => {
   } catch (err) {
     // A busy port must not stop the desktop app from working
     log.error('Failed to start web server:', err)
+  }
+
+  try {
+    if (readMcpConfig().enabled) {
+      await mcpServer.start()
+    }
+  } catch (err) {
+    log.error('Failed to start MCP server:', err)
   }
 })
 
@@ -171,10 +266,15 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', async () => {
+  updateService.dispose()
+  await mcpServer.stop()
   await webServer.stop()
   if (watcherService) {
     await watcherService.unwatchAll()
   }
   snapshotService?.dispose()
+  kbSyncService?.dispose()
+  await semanticService?.dispose()
+  await kbService?.dispose()
   closeDb()
 })

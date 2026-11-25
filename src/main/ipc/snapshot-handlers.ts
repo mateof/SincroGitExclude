@@ -31,6 +31,14 @@ export function registerSnapshotHandlers(snapshotService: SnapshotService): void
     }
   )
 
+  ipcMain.handle('snapshots:counts', async (_, deploymentId: string) => {
+    try {
+      return { success: true, data: snapshotService.getSnapshotCounts(deploymentId) }
+    } catch (error) {
+      return { success: false, error: describeError(error) }
+    }
+  })
+
   ipcMain.handle('snapshots:full-state', async (_, snapshotId: string) => {
     try {
       const data = await snapshotService.getFullStateAtSnapshot(snapshotId)

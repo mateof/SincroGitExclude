@@ -13,7 +13,9 @@
     "sourceDeployment": "Source deployment",
     "sourceDeploymentHint": "Select an existing deployment as source",
     "noSource": "None (start fresh)",
-    "sourceCommitHint": "Select a specific commit"
+    "sourceCommitHint": "Select a specific commit",
+    "remoteSources": "Other machines",
+    "remoteSourceLabel": "{{machine}} · {{path}}"
   },
   "status": {
     "active": "Active",

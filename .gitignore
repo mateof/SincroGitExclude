@@ -28,3 +28,6 @@ Desktop.ini
 # Environment
 .env
 .env.*
+
+CLAUDE.md
+custom.md

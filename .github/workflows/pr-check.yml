@@ -31,3 +31,6 @@ jobs:
 
       - name: Build
         run: npx electron-vite build
+
+      - name: Test
+        run: npm test

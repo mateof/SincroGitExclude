@@ -61,6 +61,7 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       channel: ${{ steps.target.outputs.channel }}
       ref: ${{ steps.target.outputs.ref }}
+      sha: ${{ steps.version.outputs.sha }}
       pr: ${{ steps.target.outputs.pr }}
     steps:
       - name: Resolve target commit and channel
@@ -141,6 +142,7 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           echo "Building prerelease $VERSION (tag $TAG)"
 
   build-windows:
@@ -204,9 +206,19 @@ jobs:
 
       - name: Build and package (arm64)
         run: npm run build && npx electron-builder --mac --arm64 --publish never
+        env:
+          CSC_FOR_PULL_REQUEST: 'true'
 
       - name: Build and package (x64)
         run: npx electron-builder --mac --x64 --publish never
+        env:
+          CSC_FOR_PULL_REQUEST: 'true'
+
+      - name: Verify signature
+        run: |
+          for app in dist/mac*/SincroGitExclude.app; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -284,6 +296,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           CHANNEL: ${{ needs.prepare.outputs.channel }}
           TARGET: ${{ needs.prepare.outputs.ref }}
+          COMMIT: ${{ needs.prepare.outputs.sha }}
           PR: ${{ needs.prepare.outputs.pr }}
         run: |
           set -euo pipefail
@@ -303,7 +316,7 @@ jobs:
           # release shown on the repo front page. --target creates the tag at
           # the built commit when the tag does not exist yet (PR / manual runs).
           gh release create "$TAG" \
-            --target "$TARGET" \
+            --target "$COMMIT" \
             --title "SincroGitExclude $VERSION ($CHANNEL)" \
             --notes "$NOTES" \
             --prerelease

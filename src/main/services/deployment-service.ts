@@ -6,7 +6,16 @@ import { getDb } from '../database/connection'
 import { GitService } from '../git/git-service'
 import { GitExcludeService } from '../git/git-exclude'
 import { WatcherService } from './watcher-service'
-import { scanDirectory, matchesAnyPattern } from '../utils/file-scanner'
+import { matchesAnyPattern } from '../utils/file-scanner'
+import {
+  commitChanges,
+  hasChanges as treeHasChanges,
+  listTrackedFiles,
+  removeDeployedIndex,
+  restoreFromCommit
+} from '../git/deployed-tree'
+import { treeOf } from './deployment-context'
+import { changeStatus, mapWithConcurrency } from './change-status'
 import type { TagRow } from './file-service'
 import log from 'electron-log'
 
@@ -41,14 +50,6 @@ export class DeploymentService {
   private getBundleExcludePath(fileRelativePath: string): string {
     const base = fileRelativePath.replace(/[\\/]+$/, '').replace(/\\/g, '/')
     return base + '/'
-  }
-
-  private getIgnorePatterns(fileId: string): string[] {
-    const row = getDb()
-      .prepare('SELECT ignore_patterns FROM files WHERE id = ?')
-      .get(fileId) as { ignore_patterns: string } | undefined
-    const raw = row?.ignore_patterns ?? ''
-    return raw.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#'))
   }
 
   async createDeployment(
@@ -98,7 +99,11 @@ export class DeploymentService {
         }
 
         try {
-          await this.gitService.createBranch(internalRepoPath, branchName, startPoint)
+          if (isBundle) {
+            await this.gitService.createBranchRef(internalRepoPath, branchName, startPoint)
+          } else {
+            await this.gitService.createBranch(internalRepoPath, branchName, startPoint)
+          }
         } catch (error) {
           throw new Error(
             `Could not create internal branch ${branchName}` +
@@ -108,10 +113,12 @@ export class DeploymentService {
 
         try {
           await this.populateDeployment(
+            id,
             internalRepoPath,
             repoPath,
             fileRelativePath,
             fileId,
+            branchName,
             isBundle
           )
         } catch (error) {
@@ -180,59 +187,35 @@ export class DeploymentService {
    * Must run inside the internal repo lock, on the already-created branch.
    */
   private async populateDeployment(
+    deploymentId: string,
     internalRepoPath: string,
     repoPath: string,
     fileRelativePath: string,
     fileId: string,
+    branchName: string,
     isBundle: boolean
   ): Promise<void> {
       if (isBundle) {
-        // Bundle: handle multi-file deployment
-        const bundleFiles = await this.gitService.listFiles(internalRepoPath)
-        const deployBasePath = join(repoPath, fileRelativePath)
-        const ignorePatterns = this.getIgnorePatterns(fileId)
+        const tree = treeOf({
+          id: deploymentId,
+          file_id: fileId,
+          repo_path: repoPath,
+          file_relative_path: fileRelativePath,
+          branch_name: branchName
+        })
+        mkdirSync(tree.workTree, { recursive: true })
 
-        let imported = false
-        for (const relPath of bundleFiles) {
-          if (matchesAnyPattern(relPath, ignorePatterns)) continue
-          const deployedPath = join(deployBasePath, relPath)
-          const internalPath = join(internalRepoPath, relPath)
+        const missing = (await listTrackedFiles(tree)).filter(
+          (relPath) =>
+            !matchesAnyPattern(relPath, tree.ignorePatterns) &&
+            !existsSync(join(tree.workTree, relPath))
+        )
+        await restoreFromCommit(tree, `refs/heads/${branchName}`, missing)
 
-          if (existsSync(deployedPath)) {
-            // Import existing file
-            copyFileSync(deployedPath, internalPath)
-            imported = true
-          } else {
-            // Copy from internal repo to deployed location
-            mkdirSync(dirname(deployedPath), { recursive: true })
-            copyFileSync(internalPath, deployedPath)
-          }
-        }
-
-        // Also import any new files from deployed dir that aren't tracked yet
-        if (existsSync(deployBasePath)) {
-          const deployedFiles = scanDirectory(deployBasePath, ignorePatterns)
-          const trackedSet = new Set(bundleFiles)
-          for (const relPath of deployedFiles) {
-            if (!trackedSet.has(relPath)) {
-              const deployedPath = join(deployBasePath, relPath)
-              const internalPath = join(internalRepoPath, relPath)
-              mkdirSync(dirname(internalPath), { recursive: true })
-              copyFileSync(deployedPath, internalPath)
-              imported = true
-            }
-          }
-        }
-
-        if (imported) {
-          try {
-            await this.gitService.addAllAndCommit(
-              internalRepoPath,
-              'Import existing file content'
-            )
-          } catch {
-            // No changes - files are same as source
-          }
+        try {
+          await commitChanges(tree, 'Import existing file content')
+        } catch (error) {
+          if ((error as Error).message !== 'No changes to commit') throw error
         }
       } else {
         // Single file: existing logic
@@ -284,6 +267,8 @@ export class DeploymentService {
       }
     }
 
+    changeStatus.invalidate(id)
+
     // Start watching
     const watchPath = join(repoPath, fileRelativePath)
     try {
@@ -324,19 +309,23 @@ export class DeploymentService {
       .prepare('SELECT id, file_id FROM deployments WHERE is_active = 1')
       .all() as Array<{ id: string; file_id: string }>
 
-    let count = 0
-    const fileIds = new Set<string>()
-    for (const d of activeDeployments) {
+    const results = await mapWithConcurrency(activeDeployments, 4, async (d) => {
+      const cached = changeStatus.get(d.id)
+      if (cached !== undefined) return cached
       try {
-        const hasChanges = await this.checkForChanges(d.id)
-        if (hasChanges) {
-          count++
-          fileIds.add(d.file_id)
-        }
+        return await this.checkForChanges(d.id)
       } catch {
-        // Skip deployments that can't be checked
+        return false
       }
-    }
+    })
+
+    const fileIds = new Set<string>()
+    let count = 0
+    results.forEach((changed, i) => {
+      if (!changed) return
+      count++
+      fileIds.add(activeDeployments[i].file_id)
+    })
     return { count, fileIds: [...fileIds] }
   }
 
@@ -364,6 +353,8 @@ export class DeploymentService {
     getDb()
       .prepare('UPDATE deployments SET is_active = 0 WHERE id = ?')
       .run(id)
+
+    changeStatus.invalidate(id)
 
     // Stop watching
     await this.watcherService.unwatchDeployment(id)
@@ -393,6 +384,7 @@ export class DeploymentService {
     getDb()
       .prepare('UPDATE deployments SET is_active = 1 WHERE id = ?')
       .run(id)
+    changeStatus.invalidate(id)
 
     // Re-add to git exclude
     const fileType = this.getFileType(deployment.file_id)
@@ -475,6 +467,7 @@ export class DeploymentService {
             }
           }
           await this.gitService.deleteBranch(internalRepoPath, deployment.branch_name)
+          removeDeployedIndex(internalRepoPath, id)
         })
       }
     } catch (err) {
@@ -483,6 +476,7 @@ export class DeploymentService {
 
     // Delete from DB (cascade removes deployment_tags and snapshots)
     getDb().prepare('DELETE FROM deployments WHERE id = ?').run(id)
+    changeStatus.invalidate(id)
 
     log.info(`Deleted deployment ${id}${deleteFromDisk ? ' (files removed from disk)' : ''}`)
   }
@@ -491,56 +485,16 @@ export class DeploymentService {
     const deployment = this.getDeployment(id)
     if (!deployment) throw new Error('Deployment not found')
 
-    const internalRepoPath = join(FILES_DIR, deployment.file_id)
-    const fileType = this.getFileType(deployment.file_id)
-
-    if (fileType === 'bundle') {
-      const deployBasePath = join(deployment.repo_path, deployment.file_relative_path)
-      if (!existsSync(deployBasePath)) {
-        throw new Error('Deployed directory does not exist')
-      }
-
-      const ignorePatterns = this.getIgnorePatterns(deployment.file_id)
-
-      await this.gitService.withLock(internalRepoPath, async () => {
-        await this.gitService.checkout(internalRepoPath, deployment.branch_name)
-
-        // Sync tracked files
-        const bundleFiles = await this.gitService.listFiles(internalRepoPath)
-        for (const relPath of bundleFiles) {
-          if (matchesAnyPattern(relPath, ignorePatterns)) continue
-          const deployedPath = join(deployBasePath, relPath)
-          const internalPath = join(internalRepoPath, relPath)
-          if (existsSync(deployedPath)) {
-            copyFileSync(deployedPath, internalPath)
-          }
-        }
-
-        // Also copy new (untracked) files from deployed dir
-        const deployedFiles = scanDirectory(deployBasePath, ignorePatterns)
-        const trackedSet = new Set(bundleFiles)
-        for (const relPath of deployedFiles) {
-          if (!trackedSet.has(relPath)) {
-            const deployedPath = join(deployBasePath, relPath)
-            const internalPath = join(internalRepoPath, relPath)
-            mkdirSync(dirname(internalPath), { recursive: true })
-            copyFileSync(deployedPath, internalPath)
-          }
-        }
-      })
-    } else {
-      const deployedFullPath = join(deployment.repo_path, deployment.file_relative_path)
-      if (!existsSync(deployedFullPath)) {
-        throw new Error('Deployed file does not exist')
-      }
-
-      await this.gitService.withLock(internalRepoPath, async () => {
-        await this.gitService.checkout(internalRepoPath, deployment.branch_name)
-
-        const content = readFileSync(deployedFullPath)
-        writeFileSync(join(internalRepoPath, 'content'), content)
-      })
+    const deployedFullPath = join(deployment.repo_path, deployment.file_relative_path)
+    if (!existsSync(deployedFullPath)) {
+      throw new Error(
+        this.getFileType(deployment.file_id) === 'bundle'
+          ? 'Deployed directory does not exist'
+          : 'Deployed file does not exist'
+      )
     }
+
+    await this.checkForChanges(id)
 
     getDb()
       .prepare("UPDATE deployments SET last_synced_at = datetime('now') WHERE id = ?")
@@ -551,79 +505,20 @@ export class DeploymentService {
     const deployment = this.getDeployment(id)
     if (!deployment) return false
 
+    const result = await this.computeChanges(deployment)
+    changeStatus.set(id, result)
+    return result
+  }
+
+  private async computeChanges(deployment: DeploymentRow): Promise<boolean> {
     const internalRepoPath = join(FILES_DIR, deployment.file_id)
     const fileType = this.getFileType(deployment.file_id)
     const branchName = deployment.branch_name
 
     if (fileType === 'bundle') {
-      const deployBasePath = join(deployment.repo_path, deployment.file_relative_path)
-      if (!existsSync(deployBasePath)) return false
-
-      const ignorePatterns = this.getIgnorePatterns(deployment.file_id)
-
-      return this.gitService.withLock(internalRepoPath, async () => {
-        await this.gitService.checkout(internalRepoPath, branchName)
-
-        const bundleFiles = await this.gitService.listFiles(internalRepoPath)
-
-        // Save originals
-        const originals = new Map<string, Buffer>()
-        for (const relPath of bundleFiles) {
-          const internalPath = join(internalRepoPath, relPath)
-          if (existsSync(internalPath)) {
-            originals.set(relPath, readFileSync(internalPath))
-          }
-        }
-
-        // Copy deployed files into internal repo (read+write to avoid copying mode)
-        for (const relPath of bundleFiles) {
-          if (matchesAnyPattern(relPath, ignorePatterns)) continue
-          const deployedPath = join(deployBasePath, relPath)
-          const internalPath = join(internalRepoPath, relPath)
-          if (existsSync(deployedPath)) {
-            writeFileSync(internalPath, readFileSync(deployedPath))
-          } else if (existsSync(internalPath)) {
-            rmSync(internalPath)
-          }
-        }
-
-        // Check for new (untracked) files in the deployed directory
-        const deployedFiles = scanDirectory(deployBasePath, ignorePatterns)
-        const trackedSet = new Set(bundleFiles)
-        const newFiles: string[] = []
-        for (const relPath of deployedFiles) {
-          if (!trackedSet.has(relPath)) {
-            const deployedPath = join(deployBasePath, relPath)
-            const internalPath = join(internalRepoPath, relPath)
-            mkdirSync(dirname(internalPath), { recursive: true })
-            writeFileSync(internalPath, readFileSync(deployedPath))
-            newFiles.push(relPath)
-          }
-        }
-
-        // Use git to detect actual changes (handles filters, line endings, etc.)
-        let hasChanges: boolean
-        if (newFiles.length > 0) {
-          await this.gitService.addAll(internalRepoPath)
-          hasChanges = await this.gitService.hasChanges(internalRepoPath, true)
-          await this.gitService.resetAll(internalRepoPath)
-        } else {
-          hasChanges = await this.gitService.hasChanges(internalRepoPath, false)
-        }
-
-        // Restore originals
-        for (const relPath of newFiles) {
-          const internalPath = join(internalRepoPath, relPath)
-          if (existsSync(internalPath)) rmSync(internalPath)
-        }
-        for (const [relPath, content] of originals) {
-          const internalPath = join(internalRepoPath, relPath)
-          mkdirSync(dirname(internalPath), { recursive: true })
-          writeFileSync(internalPath, content)
-        }
-
-        return hasChanges
-      })
+      const tree = treeOf(deployment)
+      if (!existsSync(tree.workTree)) return false
+      return this.gitService.withLock(internalRepoPath, () => treeHasChanges(tree))
     } else {
       const deployedFullPath = join(deployment.repo_path, deployment.file_relative_path)
       if (!existsSync(deployedFullPath)) return false
@@ -643,6 +538,19 @@ export class DeploymentService {
         writeFileSync(contentPath, original)
         return hasChanges
       })
+    }
+  }
+
+  async restartWatchersForFile(fileId: string): Promise<void> {
+    const deployments = getDb()
+      .prepare('SELECT id, repo_path, file_relative_path FROM deployments WHERE file_id = ? AND is_active = 1')
+      .all(fileId) as Array<{ id: string; repo_path: string; file_relative_path: string }>
+
+    for (const d of deployments) {
+      changeStatus.invalidate(d.id)
+      const fullPath = join(d.repo_path, d.file_relative_path)
+      await this.watcherService.unwatchDeployment(d.id)
+      if (existsSync(fullPath)) await this.watcherService.watchDeployment(d.id, fullPath)
     }
   }
 

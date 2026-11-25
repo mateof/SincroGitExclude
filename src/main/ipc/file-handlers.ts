@@ -1,8 +1,12 @@
 import { describeError } from '../utils/errors'
 import { ipcMain } from 'electron'
 import { FileService } from '../services/file-service'
+import type { DeploymentService } from '../services/deployment-service'
 
-export function registerFileHandlers(fileService: FileService): void {
+export function registerFileHandlers(
+  fileService: FileService,
+  deploymentService: DeploymentService
+): void {
   ipcMain.handle('files:list', async () => {
     try {
       return { success: true, data: fileService.listFiles() }
@@ -195,6 +199,7 @@ export function registerFileHandlers(fileService: FileService): void {
   ipcMain.handle('files:set-ignore-patterns', async (_, fileId: string, patterns: string) => {
     try {
       fileService.setIgnorePatterns(fileId, patterns)
+      await deploymentService.restartWatchersForFile(fileId)
       return { success: true }
     } catch (error) {
       return { success: false, error: describeError(error) }

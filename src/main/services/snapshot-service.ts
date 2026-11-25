@@ -5,7 +5,10 @@ import { deflateSync, inflateSync } from 'zlib'
 import { FILES_DIR } from '../app-paths'
 import { getDb } from '../database/connection'
 import { GitService } from '../git/git-service'
+import { restoreFromCommit } from '../git/deployed-tree'
 import type { DeploymentService } from './deployment-service'
+import { treeOf } from './deployment-context'
+import { changeStatus } from './change-status'
 import log from 'electron-log'
 
 interface DeploymentRow {
@@ -47,11 +50,11 @@ export class SnapshotService {
     return this.enabled
   }
 
-  onFileChanged(deploymentId: string, changedPath: string): void {
+  onFileChanged(deploymentId: string, changedPaths: string[]): void {
     if (!this.enabled) return
 
     const pending = this.pendingChanges.get(deploymentId) || new Set()
-    pending.add(changedPath)
+    for (const changedPath of changedPaths) pending.add(changedPath)
     this.pendingChanges.set(deploymentId, pending)
 
     const existingTimer = this.debounceTimers.get(deploymentId)
@@ -203,6 +206,97 @@ export class SnapshotService {
     return row.count
   }
 
+  getSnapshotCounts(deploymentId: string): Record<string, number> {
+    const rows = getDb()
+      .prepare(
+        `SELECT COALESCE(base_commit_hash, '') as hash, COUNT(*) as count
+         FROM snapshots WHERE deployment_id = ? GROUP BY base_commit_hash`
+      )
+      .all(deploymentId) as Array<{ hash: string; count: number }>
+    return Object.fromEntries(rows.map((r) => [r.hash, r.count]))
+  }
+
+  private getSnapshotBuffers(snapshotId: string): Map<string, Buffer> {
+    const rows = getDb()
+      .prepare('SELECT file_path, content FROM snapshot_files WHERE snapshot_id = ?')
+      .all(snapshotId) as Array<{ file_path: string; content: Buffer }>
+    return new Map(rows.map((r) => [r.file_path, inflateSync(r.content)]))
+  }
+
+  private getOverlayUpTo(snapshot: {
+    id: string
+    deployment_id: string
+    base_commit_hash: string | null
+    created_at: string
+  }): Map<string, Buffer> {
+    const ids = getDb()
+      .prepare(
+        `SELECT s.id FROM snapshots s
+         WHERE s.deployment_id = ? AND s.base_commit_hash IS ?
+         AND (s.created_at < ? OR (s.created_at = ? AND s.rowid <= (SELECT rowid FROM snapshots WHERE id = ?)))
+         ORDER BY s.created_at ASC, s.rowid ASC`
+      )
+      .all(
+        snapshot.deployment_id,
+        snapshot.base_commit_hash,
+        snapshot.created_at,
+        snapshot.created_at,
+        snapshot.id
+      ) as Array<{ id: string }>
+
+    const overlay = new Map<string, Buffer>()
+    for (const { id } of ids) {
+      for (const [path, content] of this.getSnapshotBuffers(id)) overlay.set(path, content)
+    }
+    return overlay
+  }
+
+  private getSnapshotRow(snapshotId: string): {
+    id: string
+    deployment_id: string
+    base_commit_hash: string | null
+    created_at: string
+  } {
+    const snapshot = getDb().prepare('SELECT * FROM snapshots WHERE id = ?').get(snapshotId) as
+      | { id: string; deployment_id: string; base_commit_hash: string | null; created_at: string }
+      | undefined
+    if (!snapshot) throw new Error('Snapshot not found')
+    return snapshot
+  }
+
+  private async writeSnapshotState(
+    snapshotId: string,
+    deployment: DeploymentRow,
+    restoreBase: boolean
+  ): Promise<void> {
+    const snapshot = this.getSnapshotRow(snapshotId)
+    const fileType = this.getFileType(deployment.file_id)
+    const internalRepoPath = join(FILES_DIR, deployment.file_id)
+    const overlay = this.getOverlayUpTo(snapshot)
+    const target = join(deployment.repo_path, deployment.file_relative_path)
+
+    if (fileType === 'bundle') {
+      if (restoreBase && snapshot.base_commit_hash) {
+        await this.gitService.withLock(internalRepoPath, () =>
+          restoreFromCommit(treeOf(deployment), snapshot.base_commit_hash!)
+        )
+      }
+      for (const [path, content] of overlay) {
+        const destPath = join(target, path)
+        mkdirSync(join(destPath, '..'), { recursive: true })
+        writeFileSync(destPath, content)
+      }
+    } else {
+      const content =
+        overlay.get('content') ??
+        (snapshot.base_commit_hash
+          ? await this.gitService.readFileForCheckout(internalRepoPath, snapshot.base_commit_hash, 'content')
+          : null)
+      if (content) writeFileSync(target, content)
+    }
+    changeStatus.invalidate(deployment.id)
+  }
+
   getSnapshotFiles(snapshotId: string): Array<{ path: string; content: string }> {
     const rows = getDb()
       .prepare('SELECT file_path, content FROM snapshot_files WHERE snapshot_id = ?')
@@ -217,108 +311,36 @@ export class SnapshotService {
   async getFullStateAtSnapshot(
     snapshotId: string
   ): Promise<Array<{ path: string; content: string }>> {
-    const snapshot = getDb()
-      .prepare('SELECT * FROM snapshots WHERE id = ?')
-      .get(snapshotId) as {
-      id: string
-      deployment_id: string
-      base_commit_hash: string | null
-      created_at: string
-    } | undefined
-
-    if (!snapshot) throw new Error('Snapshot not found')
-
+    const snapshot = this.getSnapshotRow(snapshotId)
     const deployment = this.getDeployment(snapshot.deployment_id)
     const fileType = this.getFileType(deployment.file_id)
     const internalRepoPath = join(FILES_DIR, deployment.file_id)
 
     // Start with files from the base commit
-    const fileMap = new Map<string, string>()
+    const fileMap = new Map<string, Buffer>()
 
     if (snapshot.base_commit_hash) {
-      await this.gitService.withLock(internalRepoPath, async () => {
-        if (fileType === 'bundle') {
-          const files = await this.gitService.listFilesAtCommit(
-            internalRepoPath,
-            snapshot.base_commit_hash!
-          )
-          for (const relPath of files) {
-            try {
-              const content = await this.gitService.getFileAtCommit(
-                internalRepoPath,
-                snapshot.base_commit_hash!,
-                relPath
-              )
-              fileMap.set(relPath, content)
-            } catch {
-              // Skip files that can't be read
-            }
-          }
-        } else {
-          try {
-            const content = await this.gitService.getFileAtCommit(
-              internalRepoPath,
-              snapshot.base_commit_hash!,
-              'content'
-            )
-            fileMap.set('content', content)
-          } catch {
-            // No base content
-          }
-        }
-      })
+      const base = snapshot.base_commit_hash
+      const files =
+        fileType === 'bundle'
+          ? await this.gitService.listFilesAtCommit(internalRepoPath, base)
+          : ['content']
+      const contents = await this.gitService.readFiles(internalRepoPath, base, files)
+      for (const [path, content] of contents) fileMap.set(path, content)
     }
 
-    // Overlay all snapshots from the same deployment+base_commit up to this one
-    const allSnapshots = getDb()
-      .prepare(
-        `SELECT s.id FROM snapshots s
-         WHERE s.deployment_id = ? AND s.base_commit_hash IS ?
-         AND s.created_at <= ?
-         ORDER BY s.created_at DESC`
-      )
-      .all(snapshot.deployment_id, snapshot.base_commit_hash, snapshot.created_at) as Array<{
-      id: string
-    }>
+    for (const [path, content] of this.getOverlayUpTo(snapshot)) fileMap.set(path, content)
 
-    for (const s of allSnapshots) {
-      const files = this.getSnapshotFiles(s.id)
-      for (const f of files) {
-        fileMap.set(f.path, f.content)
-      }
-    }
-
-    return Array.from(fileMap.entries()).map(([path, content]) => ({ path, content }))
+    return Array.from(fileMap.entries()).map(([path, content]) => ({
+      path,
+      content: content.toString('utf-8')
+    }))
   }
 
   async applySnapshot(snapshotId: string): Promise<void> {
-    const snapshot = getDb()
-      .prepare('SELECT * FROM snapshots WHERE id = ?')
-      .get(snapshotId) as {
-      id: string
-      deployment_id: string
-    } | undefined
-
-    if (!snapshot) throw new Error('Snapshot not found')
-
+    const snapshot = this.getSnapshotRow(snapshotId)
     const deployment = this.getDeployment(snapshot.deployment_id)
-    const fileType = this.getFileType(deployment.file_id)
-    const fullState = await this.getFullStateAtSnapshot(snapshotId)
-
-    if (fileType === 'bundle') {
-      const deployBasePath = join(deployment.repo_path, deployment.file_relative_path)
-      for (const file of fullState) {
-        const destPath = join(deployBasePath, file.path)
-        mkdirSync(join(destPath, '..'), { recursive: true })
-        writeFileSync(destPath, file.content, 'utf-8')
-      }
-    } else {
-      const deployedPath = join(deployment.repo_path, deployment.file_relative_path)
-      const contentFile = fullState.find((f) => f.path === 'content')
-      if (contentFile) {
-        writeFileSync(deployedPath, contentFile.content, 'utf-8')
-      }
-    }
+    await this.writeSnapshotState(snapshotId, deployment, true)
 
     log.info(`Applied snapshot ${snapshotId.substring(0, 8)} to deployment ${snapshot.deployment_id.substring(0, 8)}`)
   }
@@ -383,22 +405,8 @@ export class SnapshotService {
     )
 
     // Apply snapshot content to the new deployment location
-    const fullState = await this.getFullStateAtSnapshot(snapshotId)
-
-    if (fileType === 'bundle') {
-      const deployBasePath = join(gitRoot, relativePath)
-      for (const file of fullState) {
-        const destPath = join(deployBasePath, file.path)
-        mkdirSync(join(destPath, '..'), { recursive: true })
-        writeFileSync(destPath, file.content, 'utf-8')
-      }
-    } else {
-      const deployedPath = join(gitRoot, relativePath)
-      const contentFile = fullState.find((f) => f.path === 'content')
-      if (contentFile) {
-        writeFileSync(deployedPath, contentFile.content, 'utf-8')
-      }
-    }
+    const created = this.getDeployment(newDeployment.id)
+    await this.writeSnapshotState(snapshotId, created, false)
 
     log.info(
       `Deployed snapshot ${snapshotId.substring(0, 8)} to ${destFolder}`

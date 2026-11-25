@@ -7,6 +7,9 @@ import { DataDirChangeDialog } from '@/components/settings/DataDirChangeDialog'
 import { UpdateChecker } from '@/components/settings/UpdateChecker'
 import { LogViewer } from '@/components/settings/LogViewer'
 import { WebServerSettings } from '@/components/settings/WebServerSettings'
+import { SyncSettings } from '@/components/settings/SyncSettings'
+import { McpSettings } from '@/components/settings/McpSettings'
+import { KnowledgeSettings } from '@/components/settings/KnowledgeSettings'
 import {
   Globe,
   Download,
@@ -27,14 +30,15 @@ import {
   Camera,
   ScrollText
 } from 'lucide-react'
+import { usePreferencesStore } from '@/stores/preferences-store'
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation('settings')
   const { t: tc } = useTranslation('common')
   const { tags, loadTags, deleteTag, loadFiles } = useFileStore()
   const { theme, setTheme, isWebMode } = useUIStore()
-  const [autoExclude, setAutoExclude] = useState(() => localStorage.getItem('autoExclude') !== 'false')
-  const [snapshotsEnabled, setSnapshotsEnabled] = useState(() => localStorage.getItem('snapshotsEnabled') !== 'false')
+  const { preferences, update: updatePreferences } = usePreferencesStore()
+  const { autoExclude, snapshotsEnabled } = preferences
   const [confirmDeleteTagId, setConfirmDeleteTagId] = useState<string | null>(null)
   const [exportLoading, setExportLoading] = useState(false)
   const [paths, setPaths] = useState<{ dbPath: string; filesDir: string; appDataDir: string; defaultDataDir: string; isCustom: boolean; isCloudSynced: boolean; appVersion: string } | null>(null)
@@ -70,14 +74,11 @@ export function SettingsPage() {
   }
 
   const handleAutoExcludeChange = (value: boolean) => {
-    setAutoExclude(value)
-    localStorage.setItem('autoExclude', String(value))
+    updatePreferences({ autoExclude: value })
   }
 
   const handleSnapshotsChange = (value: boolean) => {
-    setSnapshotsEnabled(value)
-    localStorage.setItem('snapshotsEnabled', String(value))
-    window.api.invoke('snapshots:set-enabled', value)
+    updatePreferences({ snapshotsEnabled: value })
   }
 
   const handleChangeDir = async () => {
@@ -366,6 +367,12 @@ export function SettingsPage() {
 
         {/* Web access */}
         <WebServerSettings />
+
+        <SyncSettings />
+
+        <McpSettings />
+
+        <KnowledgeSettings />
 
         {/* Tags Management */}
         <div className="bg-card border border-border rounded-xl p-4">

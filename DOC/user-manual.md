@@ -50,7 +50,7 @@ xattr -cr /Applications/SincroGitExclude.app
 
 When you first open the application, you will see:
 
-- A **sidebar** on the left listing your managed files (initially empty).
+- A **sidebar** on the left listing your managed files (initially empty). Drag its right edge to make it wider, or focus the edge and use the arrow keys. Double click goes back to the original width. The width is remembered.
 - A **dashboard** in the main area showing statistics.
 - A **header** with navigation to Settings.
 
@@ -263,6 +263,25 @@ Serves the application over HTTP so you can use it from a browser on another mac
 
 The server can only be started, stopped or reconfigured from the desktop window: doing it from a browser would cut off that browser's own connection.
 
+### MCP Access for AI Assistants
+
+Lets AI assistants (Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, opencode, Claude Desktop...) use the app through MCP while it is open. Start the server, pick your assistant under **Connect a client** and copy the command or configuration: the URL and token are already in it. **Read only** hides every tool that changes something. See [mcp.md](mcp.md) for the full list of tools.
+
+### Remote Sync
+
+Pushes and pulls every managed file, with its full history, tags and metadata, to a single git repository. Use it to back up your data or to share it between computers.
+
+- **Remote repository URL**: Any git URL this computer can reach (`git@github.com:you/sge-data.git`, an HTTPS URL, or a bare repository on a NAS). Authentication uses this computer's git setup (SSH keys or a credential helper); the app never stores passwords or tokens. A private, empty repository dedicated to this is recommended.
+- **This machine's name**: Shown to other computers when they pick one of your deployments as a source.
+- **Push**: Uploads the branches and tags of every file under `sge/files/<id>/` and the shared metadata under `sge/meta`. Files with nothing new are skipped without a network round trip. If another computer has pushed history that this one has not seen, the branch is reported as a conflict instead of being overwritten.
+- **Pull**: Creates the files that only exist in the remote, updates names, aliases, tags and ignore patterns when the remote copy is newer, and fast-forwards shared branches. Branches that belong to deployments on this computer are never moved.
+
+Deployments belong to each computer, because their paths only make sense there. After a pull, the deployments of other computers appear under **Other machines** in the source selector of the **New Deployment** dialog, together with their commits, so you can start a deployment from them.
+
+Deleting a file is synced as a deletion record: the file disappears from the remote metadata and does not come back on the next pull. Other computers keep their copy and list it in the pull report so you can delete it there if you want.
+
+See [storage.md](storage.md) for how local storage, remote sync and ZIP export fit together, how to move from a data folder shared on a network drive, and how to read the remote with plain git.
+
 ### Application Data
 
 View and change where the application stores its data:
@@ -278,6 +297,16 @@ The application will restart after changing the data location.
 
 Shows the application version and a link to the GitHub repository. The update checker automatically verifies if a newer version is available.
 
+#### Notice of a new version
+
+The app looks for new versions at the start and every two hours. When it finds one, a notice in the app window offers:
+
+- **Update**: opens the update in Settings and, on macOS, starts the download. Restarting to install it is still up to you. On Windows and Linux, download it from there.
+- **Later** (also Esc): no notices for a day.
+- **Dismiss**: no more notices about that version. It stays available in Settings, and the next version is announced.
+
+It waits while you type, while another dialog is open and while you are in Settings.
+
 #### Update channel
 
 Choose which releases the update checker looks at. Each channel also includes the ones above it:
@@ -288,4 +317,6 @@ Choose which releases the update checker looks at. Each channel also includes th
 
 Prereleases carry a version such as `1.21.0-beta.1` or `1.21.0-dev.3` and are meant for testing: install them only if you are happy to hit the occasional bug. A build installed from a prerelease follows its own channel by default, so a dev install keeps being offered dev builds.
 
-Updates are not installed automatically: the checker links to the release page so you can download the installer yourself.
+On macOS, **Update** downloads the new version, checks its size, SHA-256, version, processor and signature integrity, and asks you to restart to install it. If the replacement fails, the previous version is opened again. It needs the app in a folder you can write to, such as Applications, and is only available in the app window. If macOS blocks the replacement, allow SincroGitExclude in System Settings > Privacy & Security > App Management.
+
+On Windows and Linux the checker links to the release page so you can download the installer yourself.

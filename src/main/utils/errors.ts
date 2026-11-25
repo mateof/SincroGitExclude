@@ -1,3 +1,6 @@
+import { realpathSync } from 'fs'
+import { basename as basenamePath, dirname as dirnamePath, join as joinPath, resolve as resolvePath } from 'path'
+
 /**
  * Turns low-level errors into messages that tell the user what to do.
  *
@@ -66,9 +69,28 @@ const CLOUD_SYNC_MARKERS = [
   'SynologyDrive'
 ]
 
+function hasCloudMarker(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/').toLowerCase()
+  return CLOUD_SYNC_MARKERS.some((marker) => normalized.includes('/' + marker.toLowerCase()))
+}
+
+function realPathOfNearestExisting(path: string): string | null {
+  let current = resolvePath(path)
+  const missing: string[] = []
+  for (;;) {
+    try {
+      return joinPath(realpathSync.native(current), ...missing.reverse())
+    } catch {
+      const parent = dirnamePath(current)
+      if (parent === current) return null
+      missing.push(basenamePath(current))
+      current = parent
+    }
+  }
+}
+
 export function isCloudSyncedPath(path: string): boolean {
-  const normalized = path.replace(/\\/g, '/')
-  return CLOUD_SYNC_MARKERS.some((marker) =>
-    normalized.toLowerCase().includes('/' + marker.toLowerCase())
-  )
+  if (hasCloudMarker(path)) return true
+  const real = realPathOfNearestExisting(path)
+  return real !== null && hasCloudMarker(real)
 }

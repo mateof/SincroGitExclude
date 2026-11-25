@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import { isWebMode } from '@/lib/web-api'
+import { readSidebarWidth, storeSidebarWidth } from '@/lib/sidebar-width'
 
-type CurrentView = 'dashboard' | 'file-detail' | 'settings' | 'repo-detail'
+type CurrentView = 'dashboard' | 'file-detail' | 'settings' | 'repo-detail' | 'knowledge'
 type Theme = 'dark' | 'light'
-type SidebarTab = 'files' | 'repos'
+type SidebarTab = 'files' | 'repos' | 'knowledge'
 
 interface UIStore {
   /**
@@ -16,6 +17,7 @@ interface UIStore {
   selectedFileId: string | null
   selectedRepoId: string | null
   sidebarOpen: boolean
+  sidebarWidth: number
   sidebarTab: SidebarTab
   theme: Theme
   setCurrentView: (view: CurrentView) => void
@@ -24,16 +26,19 @@ interface UIStore {
   selectRepo: (repoId: string) => void
   deselectRepo: () => void
   setSidebarTab: (tab: SidebarTab) => void
+  openKnowledge: () => void
   toggleSidebar: () => void
+  setSidebarWidth: (width: number) => void
   setTheme: (theme: Theme) => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
   isWebMode,
-  currentView: 'dashboard',
+  currentView: localStorage.getItem('sidebarTab') === 'knowledge' ? 'knowledge' : 'dashboard',
   selectedFileId: null,
   selectedRepoId: null,
   sidebarOpen: true,
+  sidebarWidth: readSidebarWidth(),
   sidebarTab: (localStorage.getItem('sidebarTab') as SidebarTab) || 'files',
   theme: (localStorage.getItem('theme') as Theme) || 'dark',
 
@@ -60,10 +65,23 @@ export const useUIStore = create<UIStore>((set) => ({
 
   setSidebarTab: (tab) => {
     localStorage.setItem('sidebarTab', tab)
-    set({ sidebarTab: tab })
+    set((s) => ({
+      sidebarTab: tab,
+      currentView: tab === 'knowledge' ? 'knowledge' : s.currentView === 'knowledge' ? 'dashboard' : s.currentView
+    }))
+  },
+
+  openKnowledge: () => {
+    localStorage.setItem('sidebarTab', 'knowledge')
+    set({ sidebarTab: 'knowledge', currentView: 'knowledge', selectedFileId: null, selectedRepoId: null })
   },
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+
+  setSidebarWidth: (width) => {
+    storeSidebarWidth(width)
+    set({ sidebarWidth: width })
+  },
 
   setTheme: (theme) => {
     localStorage.setItem('theme', theme)

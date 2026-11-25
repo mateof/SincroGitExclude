@@ -112,6 +112,20 @@
     "upToDate": "Up to date ({{version}})",
     "checkAgain": "Check again",
     "checkError": "Could not check for updates. Click to retry.",
+    "updateNow": "Update",
+    "restart": "Restart and install",
+    "cancel": "Cancel",
+    "downloading": "Downloading... {{percent}}%",
+    "verifying": "Verifying the download...",
+    "readyHint": "Downloaded and verified. The app will close and open again with the new version.",
+    "installing": "Installing. The app will open again.",
+    "failed": "Could not update: {{error}}",
+    "installFailed": "The last installation did not finish and you are still on the previous version. If macOS blocked it, allow SincroGitExclude in System Settings > Privacy & Security > App Management.",
+    "blocked": {
+      "translocated": "To update from here, move the app to the Applications folder and open it again.",
+      "disk-image": "To update from here, copy the app to the Applications folder.",
+      "not-writable": "There is no permission to replace the app. Download it and install it by hand."
+    },
     "channel": {
       "label": "Channel",
       "stable": "Stable",
@@ -120,6 +134,16 @@
       "stableHint": "Only final releases. Recommended.",
       "betaHint": "Release candidates before they go stable.",
       "devHint": "Test builds published from a pull request. May be unstable."
+    },
+    "notice": {
+      "title": "There is a new version: {{version}}",
+      "current": "You have {{version}}",
+      "published": "published on {{date}}",
+      "changes": "See what changes",
+      "snooze": "Later",
+      "dismiss": "Dismiss",
+      "snoozeHint": "Later: you will be reminded in a day.",
+      "dismissHint": "Dismiss: no more notices about this version. It stays in Settings."
     }
   },
   "webServer": {
@@ -147,5 +171,73 @@
     "clients_one": "{{count}} browser connected",
     "clients_other": "{{count}} browsers connected",
     "desktopOnly": "The server can only be started, stopped or reconfigured from the desktop window: doing it from here would cut off your own connection."
+  },
+  "sync": {
+    "label": "Remote sync",
+    "description": "Push and pull every managed file, its history and its metadata to a single git repository (GitHub, GitLab, a bare repo on a NAS...). Each file lives in its own sge/files/<id>/* branches, so the remote does not mix with anything else. Deployments belong to each machine: they are shared as sources for new deployments, never applied on their own.",
+    "remoteUrl": "Remote repository URL",
+    "remoteHint": "Uses this computer's git credentials (SSH or a credential helper); the app stores no passwords or tokens. A private, empty repository dedicated to this is recommended.",
+    "machineName": "This machine's name",
+    "save": "Save",
+    "test": "Test connection",
+    "push": "Push",
+    "pull": "Pull",
+    "working": "Working...",
+    "never": "never",
+    "lastPush": "Last push",
+    "lastPull": "Last pull",
+    "testOk": "Connection OK. The remote has {{files}} synced file(s).",
+    "pushSummary": "Push finished: {{pushed}} file(s) with changes, {{upToDate}} already up to date.",
+    "pullSummary": "Pull finished: {{created}} new file(s), {{updated}} updated, {{fastForwarded}} branch(es) fast-forwarded.",
+    "noIssues": "No conflicts or errors.",
+    "issueError": "Error",
+    "issueConflict": "Conflict",
+    "issueDeleted": "{{name}} was deleted on another machine. It is kept here; delete it manually if you no longer need it."
+  },
+  "mcp": {
+    "label": "MCP access for AI assistants",
+    "description": "Lets AI assistants (Claude Code, Codex, Gemini CLI, Cursor, Copilot...) use the app: list and create files, deploy, review changes, commit, restore versions, sync and change settings. Works while the app is open.",
+    "running": "Running",
+    "stopped": "Stopped",
+    "start": "Start MCP server",
+    "stop": "Stop MCP server",
+    "port": "Port",
+    "apply": "Apply",
+    "readOnly": "Read only",
+    "readOnlyHint": "The assistant can look at everything but change nothing: write tools are not even listed.",
+    "bindAll": "Allow connections from other machines on the network",
+    "networkWarning": "Anyone on the network with the token will be able to read and change your managed files and run git on this computer. Traffic is not encrypted (HTTP): use it only on trusted networks or over a VPN.",
+    "token": "Access token",
+    "showToken": "Show token",
+    "hideToken": "Hide token",
+    "copy": "Copy",
+    "regenerate": "Regenerate token",
+    "regenerateConfirm": "Clients already set up will stop connecting until you copy the command again. Regenerate the token?",
+    "connectTitle": "Connect a client",
+    "connectHint": "Pick your assistant and copy the command or the configuration. The URL and token are already in it.",
+    "runInTerminal": "Run it in a terminal",
+    "addToFile": "Add it to {{path}}",
+    "genericConfig": "Connection details for any MCP client with HTTP (Streamable HTTP)",
+    "notRunningHint": "The server is stopped: start it so the client can connect.",
+    "notes": {
+      "merge": "If the file already exists, add this entry to the ones it has instead of replacing it.",
+      "nodeRequired": "Claude Desktop only accepts local servers over stdio, so this uses the mcp-remote bridge, which needs Node.js installed. Restart Claude Desktop after saving.",
+      "antigravity": "Since June 2026, Gemini CLI was replaced by Antigravity CLI for free and Google One accounts."
+    },
+    "preventSleep": "Keep this computer awake while the MCP is open to the network",
+    "preventSleepHint": "So other computers can use the knowledge base even when nobody uses this one.",
+    "tokens": {
+      "title": "Per-device tokens",
+      "hint": "Create one token per computer or assistant, with only the permissions it needs. You can give access to the memory without access to managed files, and revoke each one separately.",
+      "add": "New token",
+      "namePlaceholder": "Name (e.g. Windows laptop)",
+      "scopesHint": "kb = knowledge base, sge = managed files. read = look, write = change, admin = add and configure spaces (destinations are confirmed on this computer).",
+      "create": "Create token",
+      "created": "Token created. The commands below already use it:",
+      "primary": "Main token",
+      "allScopes": "every permission",
+      "revoke": "Revoke",
+      "revokeConfirm": "Revoke this token? The computer using it will lose access."
+    }
   }
 }

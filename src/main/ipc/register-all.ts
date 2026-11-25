@@ -19,8 +19,27 @@ import { registerSnapshotHandlers } from './snapshot-handlers'
 import { registerRepoHandlers } from './repo-handlers'
 import { registerLogHandlers } from './log-handlers'
 import { registerServerHandlers } from './server-handlers'
+import { registerSyncHandlers } from './sync-handlers'
+import { registerMcpHandlers } from './mcp-handlers'
+import { registerPreferencesHandlers } from './preferences-handlers'
+import { registerKbHandlers } from './kb-handlers'
+import { registerKbSyncHandlers } from './kb-sync-handlers'
+import { registerKbRepoHandlers } from './kb-repo-handlers'
+import { registerKbCryptoHandlers } from './kb-crypto-handlers'
+import { registerKbSemanticHandlers } from './kb-semantic-handlers'
+import { registerKbAdminHandlers } from './kb-admin-handlers'
+import type { KbAdminService } from '../kb/kb-admin-service'
+import { registerUpdateHandlers } from './update-handlers'
+import type { UpdateService } from '../update/update-service'
+import type { SemanticService } from '../kb/semantic/semantic-service'
+import type { KbCryptoService } from '../kb/kb-crypto-service'
+import type { KbRepoService } from '../kb/kb-repo-service'
+import type { KbService } from '../kb/kb-service'
+import type { KbSyncService } from '../kb/kb-sync-service'
+import type { Preferences } from '../preferences'
 import type { SnapshotService } from '../services/snapshot-service'
 import type { RepoService } from '../services/repo-service'
+import type { SyncService } from '../sync/sync-service'
 
 /** Channels called constantly by the UI — logging them would drown the log */
 const QUIET_CHANNELS = new Set([
@@ -101,12 +120,21 @@ interface Services {
   importService: ImportService
   snapshotService: SnapshotService
   repoService: RepoService
+  syncService: SyncService
+  kbService: KbService
+  kbSyncService: KbSyncService
+  kbRepoService: KbRepoService
+  kbCryptoService: KbCryptoService
+  semanticService: SemanticService
+  kbAdminService: KbAdminService
+  updateService: UpdateService
+  applyPreferences: (preferences: Preferences) => void
 }
 
 export function registerAllHandlers(services: Services): void {
   installIpcLogging()
 
-  registerFileHandlers(services.fileService)
+  registerFileHandlers(services.fileService, services.deploymentService)
   registerDeploymentHandlers(services.deploymentService)
   registerCommitHandlers(services.commitService)
   registerExcludeHandlers(services.gitExcludeService, services.gitService)
@@ -116,4 +144,14 @@ export function registerAllHandlers(services: Services): void {
   registerRepoHandlers(services.repoService, services.gitExcludeService)
   registerLogHandlers()
   registerServerHandlers()
+  registerSyncHandlers(services.syncService)
+  registerMcpHandlers()
+  registerPreferencesHandlers(services.applyPreferences)
+  registerKbHandlers(services.kbService)
+  registerKbSyncHandlers(services.kbService, services.kbSyncService)
+  registerKbRepoHandlers(services.kbRepoService)
+  registerKbCryptoHandlers(services.kbCryptoService)
+  registerKbSemanticHandlers(services.semanticService)
+  registerKbAdminHandlers(services.kbAdminService)
+  registerUpdateHandlers(services.updateService)
 }
