@@ -50,7 +50,7 @@ xattr -cr /Applications/SincroGitExclude.app
 
 When you first open the application, you will see:
 
-- A **sidebar** on the left listing your managed files (initially empty).
+- A **sidebar** on the left listing your managed files (initially empty). Drag its right edge to make it wider, or focus the edge and use the arrow keys. Double click goes back to the original width. The width is remembered.
 - A **dashboard** in the main area showing statistics.
 - A **header** with navigation to Settings.
 

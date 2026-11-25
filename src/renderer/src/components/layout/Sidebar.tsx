@@ -1,4 +1,5 @@
 import { useUIStore } from '@/stores/ui-store'
+import { ResizableAside } from './ResizableAside'
 import { SidebarTabs } from './SidebarTabs'
 import { FilesSidebarPanel } from './FilesSidebarPanel'
 import { ReposSidebarPanel } from './ReposSidebarPanel'
@@ -10,7 +11,7 @@ export function Sidebar() {
   if (!sidebarOpen) return null
 
   return (
-    <aside className="w-64 border-r border-border flex flex-col bg-card/50 shrink-0">
+    <ResizableAside>
       <div className="p-2 border-b border-border">
         <SidebarTabs />
       </div>
@@ -21,6 +22,6 @@ export function Sidebar() {
       ) : (
         <KnowledgeSidebarPanel />
       )}
-    </aside>
+    </ResizableAside>
   )
 }

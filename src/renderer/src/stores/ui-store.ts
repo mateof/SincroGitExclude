@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { isWebMode } from '@/lib/web-api'
+import { readSidebarWidth, storeSidebarWidth } from '@/lib/sidebar-width'
 
 type CurrentView = 'dashboard' | 'file-detail' | 'settings' | 'repo-detail' | 'knowledge'
 type Theme = 'dark' | 'light'
@@ -16,6 +17,7 @@ interface UIStore {
   selectedFileId: string | null
   selectedRepoId: string | null
   sidebarOpen: boolean
+  sidebarWidth: number
   sidebarTab: SidebarTab
   theme: Theme
   setCurrentView: (view: CurrentView) => void
@@ -26,6 +28,7 @@ interface UIStore {
   setSidebarTab: (tab: SidebarTab) => void
   openKnowledge: () => void
   toggleSidebar: () => void
+  setSidebarWidth: (width: number) => void
   setTheme: (theme: Theme) => void
 }
 
@@ -35,6 +38,7 @@ export const useUIStore = create<UIStore>((set) => ({
   selectedFileId: null,
   selectedRepoId: null,
   sidebarOpen: true,
+  sidebarWidth: readSidebarWidth(),
   sidebarTab: (localStorage.getItem('sidebarTab') as SidebarTab) || 'files',
   theme: (localStorage.getItem('theme') as Theme) || 'dark',
 
@@ -73,6 +77,11 @@ export const useUIStore = create<UIStore>((set) => ({
   },
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+
+  setSidebarWidth: (width) => {
+    storeSidebarWidth(width)
+    set({ sidebarWidth: width })
+  },
 
   setTheme: (theme) => {
     localStorage.setItem('theme', theme)

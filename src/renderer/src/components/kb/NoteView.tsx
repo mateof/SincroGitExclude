@@ -250,131 +250,133 @@ export function NoteView() {
   })
 
   return (
-    <div className="flex h-full">
-      <div
-        className="flex-1 overflow-y-auto select-text"
-        ref={(el) => {
-          scrollRef.current = el
-          if (el !== scrollRoot) setScrollRoot(el)
-        }}
-      >
-        <div className="sticky top-0 z-10 bg-background/85 backdrop-blur border-b border-border">
-          <div className="flex items-center gap-1 px-4 py-2">
-            <button type="button" className={action} onClick={closeNote}>
-              <ArrowLeft className="w-3.5 h-3.5" />
-            </button>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 flex-1">
-              <span className="truncate">{space?.name}</span>
-              {crumbs.map((c, i) => (
-                <span key={i} className="flex items-center gap-1 min-w-0">
-                  <ChevronRight className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{c}</span>
-                </span>
-              ))}
-            </div>
-            {!isWebMode && (
-              <>
-                <button
-                  type="button"
-                  className={action}
-                  onClick={() => void kbCall('kb:open-in-obsidian', note.spaceId, note.path)}
-                  title={t('note.openInObsidian')}
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">{t('note.openInObsidian')}</span>
-                </button>
-                <button
-                  type="button"
-                  className={action}
-                  onClick={() => void kbCall('kb:show-in-folder', note.spaceId, note.path)}
-                  title={t('note.showInFolder')}
-                >
-                  <FolderOpen className="w-3.5 h-3.5" />
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              className={action}
-              title={t('note.copyWikilink')}
-              onClick={async () => {
-                if (await copyText(`[[${basenameNoExt(note.path)}]]`)) flash('wiki')
-              }}
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              {copied === 'wiki' && <span>{t('note.copied')}</span>}
-            </button>
-            <button
-              type="button"
-              className={action}
-              title={t('note.copyPath')}
-              onClick={async () => {
-                if (await copyText(note.absolutePath)) flash('path')
-              }}
-            >
-              <Copy className="w-3.5 h-3.5" />
-              {copied === 'path' && <span>{t('note.copied')}</span>}
-            </button>
-            <button type="button" className={action} title={t('note.history')} onClick={() => setHistoryOpen(true)}>
-              <History className="w-3.5 h-3.5" />
-            </button>
-            <div className="relative">
-              <button type="button" className={action} title={t('note.reading')} onClick={() => setPrefsOpen(!prefsOpen)}>
-                <Type className="w-3.5 h-3.5" />
+    <>
+      <div className="flex h-full @container">
+        <div
+          className="flex-1 overflow-y-auto select-text"
+          ref={(el) => {
+            scrollRef.current = el
+            if (el !== scrollRoot) setScrollRoot(el)
+          }}
+        >
+          <div className="sticky top-0 z-10 bg-background/85 backdrop-blur border-b border-border">
+            <div className="flex items-center gap-1 px-4 py-2">
+              <button type="button" className={action} onClick={closeNote}>
+                <ArrowLeft className="w-3.5 h-3.5" />
               </button>
-              {prefsOpen && (
-                <div className="absolute right-0 mt-1 w-56 bg-popover border border-border rounded-lg shadow-xl p-3 space-y-3 text-xs z-20">
-                  {(
-                    [
-                      ['font', font, setFont, ['sans', 'serif']],
-                      ['size', size, setSize, ['sm', 'md', 'lg']],
-                      ['width', width, setWidth, ['narrow', 'normal', 'wide']]
-                    ] as const
-                  ).map(([label, value, setter, options]) => (
-                    <div key={label}>
-                      <div className="text-muted-foreground mb-1">{t(`note.${label}`)}</div>
-                      <div className="flex gap-1">
-                        {options.map((o) => (
-                          <button
-                            key={o}
-                            type="button"
-                            onClick={() => (setter as (v: string) => void)(o)}
-                            className={`flex-1 px-2 py-1 rounded-md border ${value === o ? 'border-primary text-primary bg-primary/10' : 'border-border hover:bg-secondary'}`}
-                          >
-                            {o === 'sm' ? 'A-' : o === 'md' ? 'A' : o === 'lg' ? 'A+' : t(`note.${o}`)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 flex-1">
+                <span className="truncate">{space?.name}</span>
+                {crumbs.map((c, i) => (
+                  <span key={i} className="flex items-center gap-1 min-w-0">
+                    <ChevronRight className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{c}</span>
+                  </span>
+                ))}
+              </div>
+              {!isWebMode && (
+                <>
+                  <button
+                    type="button"
+                    className={action}
+                    onClick={() => void kbCall('kb:open-in-obsidian', note.spaceId, note.path)}
+                    title={t('note.openInObsidian')}
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span className="hidden @3xl:inline">{t('note.openInObsidian')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={action}
+                    onClick={() => void kbCall('kb:show-in-folder', note.spaceId, note.path)}
+                    title={t('note.showInFolder')}
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" />
+                  </button>
+                </>
               )}
+              <button
+                type="button"
+                className={action}
+                title={t('note.copyWikilink')}
+                onClick={async () => {
+                  if (await copyText(`[[${basenameNoExt(note.path)}]]`)) flash('wiki')
+                }}
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                {copied === 'wiki' && <span>{t('note.copied')}</span>}
+              </button>
+              <button
+                type="button"
+                className={action}
+                title={t('note.copyPath')}
+                onClick={async () => {
+                  if (await copyText(note.absolutePath)) flash('path')
+                }}
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {copied === 'path' && <span>{t('note.copied')}</span>}
+              </button>
+              <button type="button" className={action} title={t('note.history')} onClick={() => setHistoryOpen(true)}>
+                <History className="w-3.5 h-3.5" />
+              </button>
+              <div className="relative">
+                <button type="button" className={action} title={t('note.reading')} onClick={() => setPrefsOpen(!prefsOpen)}>
+                  <Type className="w-3.5 h-3.5" />
+                </button>
+                {prefsOpen && (
+                  <div className="absolute right-0 mt-1 w-56 bg-popover border border-border rounded-lg shadow-xl p-3 space-y-3 text-xs z-20">
+                    {(
+                      [
+                        ['font', font, setFont, ['sans', 'serif']],
+                        ['size', size, setSize, ['sm', 'md', 'lg']],
+                        ['width', width, setWidth, ['narrow', 'normal', 'wide']]
+                      ] as const
+                    ).map(([label, value, setter, options]) => (
+                      <div key={label}>
+                        <div className="text-muted-foreground mb-1">{t(`note.${label}`)}</div>
+                        <div className="flex gap-1">
+                          {options.map((o) => (
+                            <button
+                              key={o}
+                              type="button"
+                              onClick={() => (setter as (v: string) => void)(o)}
+                              className={`flex-1 px-2 py-1 rounded-md border ${value === o ? 'border-primary text-primary bg-primary/10' : 'border-border hover:bg-secondary'}`}
+                            >
+                              {o === 'sm' ? 'A-' : o === 'md' ? 'A' : o === 'lg' ? 'A+' : t(`note.${o}`)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <article className={`kb-prose kb-font-${font} kb-size-${size} kb-width-${width}`}>
-          <h1 className="kb-title">{note.title}</h1>
-          <div className="kb-meta">{t('note.modified', { date: modified })}</div>
-          {note.frontmatterError && (
-            <div className="kb-callout kb-callout-warning">
-              <div className="kb-callout-body">{t('note.frontmatterError', { error: note.frontmatterError })}</div>
-            </div>
-          )}
-          <Properties note={note} />
-          <MarkdownView
-            markdown={note.body.replace(new RegExp(`^\\s*#\\s+${note.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n`), '')}
-            spaceId={note.spaceId}
-            path={note.path}
-            outgoing={note.outgoing}
-          />
-        </article>
+          <article className={`kb-prose kb-font-${font} kb-size-${size} kb-width-${width}`}>
+            <h1 className="kb-title">{note.title}</h1>
+            <div className="kb-meta">{t('note.modified', { date: modified })}</div>
+            {note.frontmatterError && (
+              <div className="kb-callout kb-callout-warning">
+                <div className="kb-callout-body">{t('note.frontmatterError', { error: note.frontmatterError })}</div>
+              </div>
+            )}
+            <Properties note={note} />
+            <MarkdownView
+              markdown={note.body.replace(new RegExp(`^\\s*#\\s+${note.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n`), '')}
+              spaceId={note.spaceId}
+              path={note.path}
+              outgoing={note.outgoing}
+            />
+          </article>
+        </div>
+        <aside className="hidden @5xl:block w-64 shrink-0 border-l border-border overflow-y-auto p-3 space-y-4 bg-card/30">
+          <Outline note={note} scrollRoot={scrollRoot} />
+          <LinksPanel note={note} />
+        </aside>
       </div>
-      <aside className="hidden xl:block w-64 shrink-0 border-l border-border overflow-y-auto p-3 space-y-4 bg-card/30">
-        <Outline note={note} scrollRoot={scrollRoot} />
-        <LinksPanel note={note} />
-      </aside>
       {historyOpen && <NoteHistoryDialog note={note} onClose={() => setHistoryOpen(false)} />}
-    </div>
+    </>
   )
 }

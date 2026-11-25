@@ -47,8 +47,8 @@ function SpaceOverview({ space }: { space: KbSpace }) {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 basis-72">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-semibold">{space.name}</h1>
             {space.shared && <span className="kb-badge"><Users className="w-3 h-3" />{t('space.shared')}</span>}
@@ -57,7 +57,7 @@ function SpaceOverview({ space }: { space: KbSpace }) {
           </div>
           <div className="text-xs text-muted-foreground font-mono mt-1 break-all select-text">{space.localPath}</div>
         </div>
-        <div className="flex flex-wrap gap-1.5 justify-end shrink-0">
+        <div className="flex flex-wrap gap-1.5">
           {!isWebMode && (
             <>
               <button type="button" className={action} onClick={() => void kbCall('kb:open-in-obsidian', space.id)}>
@@ -115,17 +115,19 @@ function SpaceOverview({ space }: { space: KbSpace }) {
       )}
 
       {space.stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(['notes', 'files', 'tags', 'unresolved'] as const).map((k) => (
-            <div key={k} className="kb-stat">
-              <div className="kb-stat-value">{space.stats![k]}</div>
-              <div className="kb-stat-label">{t(`space.stats.${k}`)}</div>
-            </div>
-          ))}
+        <div className="@container">
+          <div className="grid grid-cols-2 @lg:grid-cols-4 gap-3">
+            {(['notes', 'files', 'tags', 'unresolved'] as const).map((k) => (
+              <div key={k} className="kb-stat">
+                <div className="kb-stat-value">{space.stats![k]}</div>
+                <div className="kb-stat-label">{t(`space.stats.${k}`)}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4">
         <div className="kb-card">
           <div className="kb-card-title">
             <FileText className="w-4 h-4" />
