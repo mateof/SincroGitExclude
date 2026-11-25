@@ -45,7 +45,13 @@
     "relocate": "Mover a una carpeta local",
     "missingTitle": "No se encuentra la carpeta del espacio",
     "inboxCount": "{{count}} notas en el inbox",
-    "noRecent": "Sin notas todavía."
+    "noRecent": "Sin notas todavía.",
+    "openRepo": {
+      "github": "Abrir en GitHub",
+      "gitlab": "Abrir en GitLab",
+      "gitea": "Abrir en Gitea",
+      "other": "Abrir repositorio"
+    }
   },
   "note": {
     "openInObsidian": "Abrir en Obsidian",
@@ -199,7 +205,78 @@
       "readonly": "Acceso de solo lectura"
     },
     "running": "Sincronizando…",
-    "noRemote": "Este espacio solo vive en este equipo. Elige un almacenamiento en los ajustes para sincronizarlo."
+    "noRemote": "Este espacio solo vive en este equipo. Elige un almacenamiento en los ajustes para sincronizarlo.",
+    "deletedHere": "Borradas en este equipo",
+    "openRepo": "Abrir el repositorio en el navegador",
+    "commits_one": "{{count}} commit",
+    "commits_other": "{{count}} commits",
+    "upToDate": "Todo al día",
+    "ahead_one": "{{count}} commit por enviar",
+    "ahead_other": "{{count}} commits por enviar",
+    "behind_one": "{{count}} commit por recibir",
+    "behind_other": "{{count}} commits por recibir",
+    "pending_one": "{{count}} fichero sin guardar en git",
+    "pending_other": "{{count}} ficheros sin guardar en git",
+    "lastCommit": "Último commit",
+    "lastExchange": "Último intercambio",
+    "notPushed": "Sin enviar",
+    "pushedCommit": "Enviado",
+    "next": "Próxima: {{date}}",
+    "nextOnWrite": "Tras cada cambio",
+    "nextManual": "Solo manual",
+    "viewActivity": "Ver actividad",
+    "activityTitle": "Actividad de {{name}}",
+    "tab": {
+      "syncs": "Sincronizaciones",
+      "commits": "Commits"
+    },
+    "logHint": "Se guardan las 200 últimas sincronizaciones que movieron ficheros o tuvieron problemas. Las que no encontraron cambios no aparecen.",
+    "noSyncs": "Todavía no hay ninguna.",
+    "noCommits": "Todavía no hay commits.",
+    "loadMore": "Cargar más",
+    "more_one": "y {{count}} más",
+    "more_other": "y {{count}} más",
+    "filesChanged_one": "{{count}} fichero",
+    "filesChanged_other": "{{count}} ficheros",
+    "file": {
+      "added": "Añadido",
+      "modified": "Modificado",
+      "deleted": "Borrado"
+    },
+    "total": {
+      "pulled_one": "{{count}} recibida",
+      "pulled_other": "{{count}} recibidas",
+      "pushed_one": "{{count}} enviada",
+      "pushed_other": "{{count}} enviadas",
+      "deletedLocal_one": "{{count}} borrada aquí",
+      "deletedLocal_other": "{{count}} borradas aquí",
+      "deletedRemote_one": "{{count}} borrada en remoto",
+      "deletedRemote_other": "{{count}} borradas en remoto",
+      "conflicts_one": "{{count}} conflicto",
+      "conflicts_other": "{{count}} conflictos"
+    },
+    "trigger": {
+      "manual": "A mano",
+      "assistant": "Pedida por la IA",
+      "schedule": "Programada",
+      "write": "Tras un cambio en la app",
+      "assistant-write": "Tras un cambio de la IA",
+      "external": "Tras un cambio fuera de la app",
+      "app": "Automática"
+    },
+    "repeats": "{{count}} veces desde {{date}}",
+    "recovered": "Volvió a funcionar, sin cambios que mover",
+    "commitsPulled_one": "{{count}} commit recibido",
+    "commitsPulled_other": "{{count}} commits recibidos",
+    "commitsPushed_one": "{{count}} commit enviado",
+    "commitsPushed_other": "{{count}} commits enviados",
+    "duration": "{{seconds}} s",
+    "copyHash": "Copiar el identificador",
+    "merge": "Fusión",
+    "openCommit": "Ver en el servidor",
+    "openNote": "Abrir la nota",
+    "binary": "Fichero binario.",
+    "tooBig": "El cambio es demasiado grande para mostrarlo aquí."
   },
   "review": {
     "title": "Cambios de la IA pendientes de revisar",

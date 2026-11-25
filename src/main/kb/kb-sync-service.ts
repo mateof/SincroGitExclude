@@ -5,6 +5,8 @@ import { pushEvent } from '../events'
 import { readSyncConfig } from '../sync/sync-config'
 import type { KbService } from './kb-service'
 import { emptyReport, ensureRepo, isRepoRoot, noteAt, noteDiff, noteHistory, syncGitSpace, commitAll, cloneSpace } from './sync/git-space'
+import { commitDetail, gitOverview, listCommits } from './sync/git-insight'
+import { capReport, logAction, LOG_ENTRIES_PER_SPACE, totalsOf } from './sync/sync-log'
 import { syncThreeWay, type SyncState } from './sync/three-way'
 import { FsStore } from './sync/fs-store'
 import { SftpStore, probeSftp } from './sync/sftp-store'
@@ -14,7 +16,19 @@ import { getGitCredential, setGitCredential } from './git-credentials'
 import { ghToken, probeRemote, sshKeyAuth, tokenAuth, type GitAuth, type GitCredential, type RemoteProbe } from './sync/git-auth'
 import { defaultUsername, detectProvider, parseRemote } from '../../shared/kb/git-remote'
 import { isCloudSyncedPath } from '../utils/errors'
-import type { GitBackendConfig, KbBackendConfig, KbOrigin, KbSpace, KbSyncReport, SftpBackendConfig } from '../../shared/kb/types'
+import type {
+  GitBackendConfig,
+  KbBackendConfig,
+  KbGitCommit,
+  KbGitCommitDetail,
+  KbGitOverview,
+  KbOrigin,
+  KbSpace,
+  KbSyncActivity,
+  KbSyncReport,
+  KbSyncTrigger,
+  SftpBackendConfig
+} from '../../shared/kb/types'
 
 export interface EncryptionHooks {
   ensureUnlocked: (spaceId: string) => Promise<boolean>
@@ -28,11 +42,27 @@ export type GitRemoteInput = Partial<GitBackendConfig> & { remoteUrl: string; to
 const WRITE_DEBOUNCE_MS = 2000
 const EXTERNAL_DEBOUNCE_MS = 30000
 
+interface SyncLogRow {
+  id: number
+  first_at: string
+  at: string
+  repeats: number
+  started_by: string
+  duration_ms: number
+  report: string
+  totals: string
+}
+
+function clampLimit(limit: number, max: number): number {
+  return Math.min(max, Math.max(1, Math.floor(Number(limit) || 1)))
+}
+
 export class KbSyncService {
   private timers = new Map<string, ReturnType<typeof setInterval>>()
   private debouncers = new Map<string, ReturnType<typeof setTimeout>>()
   private running = new Map<string, Promise<KbSyncReport>>()
-  private again = new Set<string>()
+  private again = new Map<string, KbSyncTrigger>()
+  private nextAt = new Map<string, number>()
   private encryption: EncryptionHooks | null = null
 
   constructor(private readonly kb: KbService) {}
@@ -59,12 +89,17 @@ export class KbSyncService {
   reschedule(): void {
     for (const t of this.timers.values()) clearInterval(t)
     this.timers.clear()
+    this.nextAt.clear()
     for (const space of this.kb.listSpaces()) {
       if (space.backend === 'none' || space.sync.intervalMin <= 0) continue
       const ms = Math.max(1, space.sync.intervalMin) * 60_000
+      this.nextAt.set(space.id, Date.now() + ms)
       this.timers.set(
         space.id,
-        setInterval(() => void this.syncNow(space.id).catch((e) => log.warn('Scheduled knowledge sync failed:', e)), ms)
+        setInterval(() => {
+          this.nextAt.set(space.id, Date.now() + ms)
+          void this.syncNow(space.id, 'schedule').catch((e) => log.warn('Scheduled knowledge sync failed:', e))
+        }, ms)
       )
     }
   }
@@ -81,17 +116,18 @@ export class KbSyncService {
     )
   }
 
-  onLocalWrite(spaceId: string, _paths: string[], _origin: KbOrigin): void {
+  onLocalWrite(spaceId: string, _paths: string[], origin: KbOrigin): void {
     const space = this.safeSpace(spaceId)
     if (!space || space.backend === 'none' || !space.sync.onWrite) return
-    this.debounce(`write:${spaceId}`, WRITE_DEBOUNCE_MS, () => void this.syncNow(spaceId).catch(() => {}))
+    const trigger: KbSyncTrigger = origin.source === 'mcp' ? 'assistant-write' : 'write'
+    this.debounce(`write:${spaceId}`, WRITE_DEBOUNCE_MS, () => void this.syncNow(spaceId, trigger).catch(() => {}))
   }
 
   onExternalChange(spaceId: string): void {
     const space = this.safeSpace(spaceId)
     if (!space || space.backend === 'none') return
     if (space.sync.onWrite) {
-      this.debounce(`external:${spaceId}`, EXTERNAL_DEBOUNCE_MS, () => void this.syncNow(spaceId).catch(() => {}))
+      this.debounce(`external:${spaceId}`, EXTERNAL_DEBOUNCE_MS, () => void this.syncNow(spaceId, 'external').catch(() => {}))
     } else if (space.sync.autoCommitExternal && space.backend === 'git' && !space.encrypted) {
       this.debounce(`external:${spaceId}`, EXTERNAL_DEBOUNCE_MS, () => void this.commitOnly(spaceId).catch(() => {}))
     }
@@ -161,12 +197,56 @@ export class KbSyncService {
     }
   }
 
-  async syncNow(spaceId: string): Promise<KbSyncReport> {
+  private record(spaceId: string, report: KbSyncReport, trigger: KbSyncTrigger, durationMs: number): void {
+    const db = getDb()
+    const last = db.prepare('SELECT * FROM kb_sync_log WHERE space_id = ? ORDER BY id DESC LIMIT 1').get(spaceId) as SyncLogRow | undefined
+    const action = logAction(last ? (JSON.parse(last.report) as KbSyncReport) : null, report)
+    if (action === 'skip') return
+    if (action === 'repeat' && last) {
+      db.prepare('UPDATE kb_sync_log SET at = ?, repeats = repeats + 1, started_by = ?, duration_ms = ? WHERE id = ?').run(
+        report.at,
+        trigger,
+        durationMs,
+        last.id
+      )
+      return
+    }
+    db.prepare(
+      'INSERT INTO kb_sync_log (space_id, first_at, at, started_by, duration_ms, report, totals) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(spaceId, report.at, report.at, trigger, durationMs, JSON.stringify(capReport(report)), JSON.stringify(totalsOf(report)))
+    db.prepare(
+      'DELETE FROM kb_sync_log WHERE space_id = ? AND id NOT IN (SELECT id FROM kb_sync_log WHERE space_id = ? ORDER BY id DESC LIMIT ?)'
+    ).run(spaceId, spaceId, LOG_ENTRIES_PER_SPACE)
+  }
+
+  activity(spaceId: string, limit = 50): KbSyncActivity {
+    const space = this.kb.getSpace(spaceId)
+    const rows = getDb()
+      .prepare('SELECT * FROM kb_sync_log WHERE space_id = ? ORDER BY id DESC LIMIT ?')
+      .all(space.id, clampLimit(limit, LOG_ENTRIES_PER_SPACE)) as SyncLogRow[]
+    const next = this.nextAt.get(spaceId)
+    return {
+      entries: rows.map((r) => ({
+        id: r.id,
+        firstAt: r.first_at,
+        at: r.at,
+        repeats: r.repeats,
+        trigger: r.started_by as KbSyncTrigger,
+        durationMs: r.duration_ms,
+        report: JSON.parse(r.report) as KbSyncReport,
+        totals: JSON.parse(r.totals) as KbSyncActivity['entries'][number]['totals']
+      })),
+      nextAt: next ? new Date(next).toISOString() : null
+    }
+  }
+
+  async syncNow(spaceId: string, trigger: KbSyncTrigger = 'app'): Promise<KbSyncReport> {
     const inFlight = this.running.get(spaceId)
     if (inFlight) {
-      this.again.add(spaceId)
+      this.again.set(spaceId, trigger)
       return inFlight
     }
+    const startedAt = Date.now()
     const job = this.runSync(spaceId)
       .catch((error: unknown) => {
         const report = emptyReport()
@@ -181,6 +261,11 @@ export class KbSyncService {
         } catch {
           return report
         }
+        try {
+          this.record(spaceId, report, trigger, Date.now() - startedAt)
+        } catch (error) {
+          log.warn('Could not log the knowledge sync:', error)
+        }
         pushEvent('kb:sync-report', { spaceId, report })
         if (report.pulled.length > 0 || report.deletedLocal.length > 0) {
           this.kb.emitChanged(spaceId, [...report.pulled, ...report.deletedLocal])
@@ -189,7 +274,9 @@ export class KbSyncService {
       })
       .finally(() => {
         this.running.delete(spaceId)
-        if (this.again.delete(spaceId)) void this.syncNow(spaceId)
+        const next = this.again.get(spaceId)
+        this.again.delete(spaceId)
+        if (next) void this.syncNow(spaceId, next)
       })
     this.running.set(spaceId, job)
     return job
@@ -332,6 +419,30 @@ export class KbSyncService {
 
   async noteDiff(spaceId: string, path: string, commit: string): Promise<string> {
     return noteDiff(this.kb.rootPathOf(spaceId), commit, path)
+  }
+
+  private async gitRootOf(spaceId: string): Promise<{ root: string; branch: string; remoteUrl: string } | null> {
+    const space = this.kb.getSpace(spaceId)
+    if (space.backend !== 'git' || space.encrypted || !space.exists) return null
+    const root = this.kb.rootPathOf(spaceId)
+    if (!(await isRepoRoot(root))) return null
+    return { root, branch: space.backendConfig.branch || 'main', remoteUrl: space.backendConfig.remoteUrl ?? '' }
+  }
+
+  async gitOverview(spaceId: string): Promise<KbGitOverview | null> {
+    const repo = await this.gitRootOf(spaceId)
+    return repo ? gitOverview(repo.root, repo.branch, repo.remoteUrl) : null
+  }
+
+  async gitCommits(spaceId: string, limit = 30, skip = 0): Promise<KbGitCommit[]> {
+    const repo = await this.gitRootOf(spaceId)
+    return repo ? listCommits(repo.root, repo.branch, clampLimit(limit, 100), Math.max(0, Math.floor(Number(skip) || 0))) : []
+  }
+
+  async gitCommit(spaceId: string, commit: string): Promise<KbGitCommitDetail> {
+    const repo = await this.gitRootOf(spaceId)
+    if (!repo) throw new Error('This space has no git history')
+    return commitDetail(repo.root, repo.branch, commit)
   }
 
   async cloneAndAdd(input: GitRemoteInput & { targetPath: string; name?: string }): Promise<KbSpace> {

@@ -54,6 +54,40 @@ export function detectProvider(host: string | null): GitProvider {
   return 'other'
 }
 
+export interface RemoteLinks {
+  label: string
+  provider: GitProvider
+  repoUrl: string | null
+  commitBase: string | null
+}
+
+export function safeRemoteLinks(raw: string | undefined): RemoteLinks | null {
+  try {
+    return raw ? remoteLinks(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export function remoteLinks(raw: string): RemoteLinks {
+  const url = raw.trim()
+  const info = parseRemote(url)
+  const provider = detectProvider(info.host)
+  if (info.kind === 'local') return { label: url, provider, repoUrl: null, commitBase: null }
+  const path = repoPathOf(url)
+  const label = `${info.host}/${path}`
+  const base = info.kind === 'http' ? info.origin : provider !== 'other' ? `https://${info.host}` : null
+  if (!base || !path) return { label, provider, repoUrl: null, commitBase: null }
+  const repoUrl = `${base}/${path}`
+  if (provider === 'other') return { label, provider, repoUrl, commitBase: null }
+  return { label, provider, repoUrl, commitBase: `${repoUrl}${provider === 'gitlab' ? '/-' : ''}/commit/` }
+}
+
+function repoPathOf(url: string): string {
+  const path = /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? parseUrl(url).pathname : url.slice(url.indexOf(':') + 1)
+  return path.replace(/^\/+|\/+$/g, '').replace(/\.git$/i, '')
+}
+
 export function tokenPageUrl(provider: GitProvider, origin: string | null): string | null {
   if (!origin) return null
   if (provider === 'github') return `${origin}/settings/personal-access-tokens/new`

@@ -5,14 +5,21 @@ import type { GitRemoteInput, KbSyncService } from '../kb/kb-sync-service'
 import { deleteSecret, setSecret } from '../kb/secret-vault'
 import { clearGitCredentials } from '../kb/git-credentials'
 
+function transportOf(event: unknown): string | undefined {
+  return (event as { __transport?: string } | null)?.__transport
+}
+
 export function rejectRemote(event: unknown, what: string): void {
-  const transport = (event as { __transport?: string } | null)?.__transport
-  if (transport === 'mcp') throw new Error(`${what} stays with the person, not the assistant`)
+  if (transportOf(event) === 'mcp') throw new Error(`${what} stays with the person, not the assistant`)
   if (isWebEvent(event)) throw new Error(`${what} can only be done in the app window, not from a browser`)
 }
 
 export function registerKbSyncHandlers(kb: KbService, sync: KbSyncService): void {
-  kbHandle('kb:sync', (_e, spaceId: string) => sync.syncNow(spaceId))
+  kbHandle('kb:sync', (e, spaceId: string) => sync.syncNow(spaceId, transportOf(e) === 'mcp' ? 'assistant' : 'manual'))
+  kbHandle('kb:sync-activity', (_e, spaceId: string, limit?: number) => sync.activity(spaceId, limit))
+  kbHandle('kb:git-overview', (_e, spaceId: string) => sync.gitOverview(spaceId))
+  kbHandle('kb:git-commits', (_e, spaceId: string, limit?: number, skip?: number) => sync.gitCommits(spaceId, limit, skip))
+  kbHandle('kb:git-commit', (_e, spaceId: string, commit: string) => sync.gitCommit(spaceId, commit))
   kbHandle('kb:test-backend', (_e, spaceId: string) => sync.testBackend(spaceId))
   kbHandle('kb:test-remote', (e, input: GitRemoteInput) => {
     rejectRemote(e, 'Testing credentials')

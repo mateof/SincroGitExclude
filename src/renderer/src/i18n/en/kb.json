@@ -45,7 +45,13 @@
     "relocate": "Move to a local folder",
     "missingTitle": "The folder of the space cannot be found",
     "inboxCount": "{{count}} notes in the inbox",
-    "noRecent": "No notes yet."
+    "noRecent": "No notes yet.",
+    "openRepo": {
+      "github": "Open in GitHub",
+      "gitlab": "Open in GitLab",
+      "gitea": "Open in Gitea",
+      "other": "Open repository"
+    }
   },
   "note": {
     "openInObsidian": "Open in Obsidian",
@@ -199,7 +205,78 @@
       "readonly": "Read-only access"
     },
     "running": "Syncing…",
-    "noRemote": "This space only lives on this computer. Choose a storage in its settings to sync it."
+    "noRemote": "This space only lives on this computer. Choose a storage in its settings to sync it.",
+    "deletedHere": "Deleted on this computer",
+    "openRepo": "Open the repository in the browser",
+    "commits_one": "{{count}} commit",
+    "commits_other": "{{count}} commits",
+    "upToDate": "Up to date",
+    "ahead_one": "{{count}} commit to send",
+    "ahead_other": "{{count}} commits to send",
+    "behind_one": "{{count}} commit to receive",
+    "behind_other": "{{count}} commits to receive",
+    "pending_one": "{{count}} file not committed",
+    "pending_other": "{{count}} files not committed",
+    "lastCommit": "Last commit",
+    "lastExchange": "Last exchange",
+    "notPushed": "Not sent",
+    "pushedCommit": "Sent",
+    "next": "Next: {{date}}",
+    "nextOnWrite": "After every change",
+    "nextManual": "Only by hand",
+    "viewActivity": "View activity",
+    "activityTitle": "Activity of {{name}}",
+    "tab": {
+      "syncs": "Syncs",
+      "commits": "Commits"
+    },
+    "logHint": "Keeps the last 200 syncs that moved files or had problems. Syncs that found no changes are left out.",
+    "noSyncs": "None yet.",
+    "noCommits": "No commits yet.",
+    "loadMore": "Load more",
+    "more_one": "and {{count}} more",
+    "more_other": "and {{count}} more",
+    "filesChanged_one": "{{count}} file",
+    "filesChanged_other": "{{count}} files",
+    "file": {
+      "added": "Added",
+      "modified": "Modified",
+      "deleted": "Deleted"
+    },
+    "total": {
+      "pulled_one": "{{count}} received",
+      "pulled_other": "{{count}} received",
+      "pushed_one": "{{count}} sent",
+      "pushed_other": "{{count}} sent",
+      "deletedLocal_one": "{{count}} deleted here",
+      "deletedLocal_other": "{{count}} deleted here",
+      "deletedRemote_one": "{{count}} deleted on the remote",
+      "deletedRemote_other": "{{count}} deleted on the remote",
+      "conflicts_one": "{{count}} conflict",
+      "conflicts_other": "{{count}} conflicts"
+    },
+    "trigger": {
+      "manual": "By hand",
+      "assistant": "Asked by the assistant",
+      "schedule": "Scheduled",
+      "write": "After a change in the app",
+      "assistant-write": "After a change by the assistant",
+      "external": "After a change outside the app",
+      "app": "Automatic"
+    },
+    "repeats": "{{count}} times since {{date}}",
+    "recovered": "Working again, nothing to move",
+    "commitsPulled_one": "{{count}} commit received",
+    "commitsPulled_other": "{{count}} commits received",
+    "commitsPushed_one": "{{count}} commit sent",
+    "commitsPushed_other": "{{count}} commits sent",
+    "duration": "{{seconds}} s",
+    "copyHash": "Copy the identifier",
+    "merge": "Merge",
+    "openCommit": "View on the server",
+    "openNote": "Open the note",
+    "binary": "Binary file.",
+    "tooBig": "The change is too big to show here."
   },
   "review": {
     "title": "Assistant changes waiting for review",

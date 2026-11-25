@@ -48,12 +48,12 @@ export function emptyReport(): KbSyncReport {
   }
 }
 
-async function git(root: string, args: string[], okCodes?: number[]): Promise<string> {
+export async function git(root: string, args: string[], okCodes?: number[]): Promise<string> {
   const result = await execGit(args, { cwd: root, okCodes })
   return result.stdout.toString('utf-8')
 }
 
-async function tryGit(root: string, args: string[], auth?: GitAuth): Promise<{ ok: boolean; out: string; err: string }> {
+export async function tryGit(root: string, args: string[], auth?: GitAuth): Promise<{ ok: boolean; out: string; err: string }> {
   try {
     const result = await execGit([...(auth?.args ?? []), ...args], { cwd: root, env: auth?.env })
     return { ok: true, out: result.stdout.toString('utf-8'), err: result.stderr }
@@ -149,7 +149,7 @@ async function refOf(root: string, ref: string): Promise<string | null> {
   return r.ok ? r.out.trim() : null
 }
 
-function splitZ(out: string): string[] {
+export function splitZ(out: string): string[] {
   return out.split('\0').filter((s) => s.length > 0)
 }
 
@@ -206,10 +206,16 @@ async function resolveConflicts(root: string, machine: string, when: Date): Prom
   return copies
 }
 
-async function changedBetween(root: string, from: string | null, to: string): Promise<string[]> {
-  if (!from) return splitZ(await git(root, ['ls-tree', '-r', '--name-only', '-z', to]))
-  if (from === to) return []
-  return splitZ(await git(root, ['diff', '--name-only', '-z', from, to]))
+async function changedBetween(root: string, from: string | null, to: string): Promise<{ kept: string[]; deleted: string[] }> {
+  if (!from) return { kept: splitZ(await git(root, ['ls-tree', '-r', '--name-only', '-z', to])), deleted: [] }
+  if (from === to) return { kept: [], deleted: [] }
+  const names = async (filter: string): Promise<string[]> =>
+    splitZ(await git(root, ['diff', '--no-renames', '--name-only', `--diff-filter=${filter}`, '-z', from, to]))
+  return { kept: await names('d'), deleted: await names('D') }
+}
+
+async function countCommits(root: string, from: string | null, to: string): Promise<number> {
+  return Number((await git(root, ['rev-list', '--count', from ? `${from}..${to}` : to])).trim())
 }
 
 async function scanOutgoing(root: string, base: string | null, head: string): Promise<Array<SecretFinding & { path: string }>> {
@@ -288,7 +294,10 @@ export async function syncGitSpace(root: string, options: GitSpaceOptions): Prom
     }
     if (!remoteIsAncestor) {
       const base = before ? await tryGit(root, ['merge-base', before, remoteHead]) : null
-      report.pulled = await changedBetween(root, base?.ok ? base.out.trim() : null, remoteHead)
+      const incoming = await changedBetween(root, base?.ok ? base.out.trim() : null, remoteHead)
+      report.pulled = incoming.kept
+      report.deletedLocal = incoming.deleted.filter((path) => !existsSync(join(root, ...path.split('/'))))
+      report.commitsPulled = await countCommits(root, before, remoteHead)
     }
   }
 
@@ -327,7 +336,9 @@ export async function syncGitSpace(root: string, options: GitSpaceOptions): Prom
     return report
   }
   await tryGit(root, ['update-ref', remoteRef, head])
-  report.pushed = outgoing
+  report.pushed = outgoing.kept
+  report.deletedRemote = outgoing.deleted
+  report.commitsPushed = await countCommits(root, remoteHead, head)
   report.at = now().toISOString()
   return report
 }
@@ -364,11 +375,5 @@ export async function noteAt(root: string, commit: string, path: string): Promis
 
 export async function noteDiff(root: string, commit: string, path: string): Promise<string> {
   if (!/^[0-9a-f]{7,64}$/i.test(commit)) throw new Error('Invalid commit')
-  return git(root, ['show', '--format=', '--patch', '--find-renames', commit, '--', path])
-}
-
-export async function workingChanges(root: string): Promise<string[]> {
-  const out = await tryGit(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])
-  if (!out.ok) return []
-  return splitZ(out.out).map((entry) => entry.slice(3))
+  return git(root, ['show', '-m', '--first-parent', '--format=', '--patch', '--find-renames', commit, '--', path])
 }

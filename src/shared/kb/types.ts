@@ -1,4 +1,4 @@
-import type { GitAuthMode } from './git-remote'
+import type { GitAuthMode, RemoteLinks } from './git-remote'
 
 export type KbBackend = 'none' | 'git' | 'folder' | 'sftp'
 
@@ -45,6 +45,63 @@ export interface KbSyncReport {
   secrets: Array<{ path: string; rule: string; line: number }>
   blockedBy: 'secrets' | 'review' | 'locked' | 'rollback' | 'readonly' | null
   message: string | null
+  commitsPulled?: number
+  commitsPushed?: number
+}
+
+export type KbSyncTrigger = 'manual' | 'assistant' | 'schedule' | 'write' | 'assistant-write' | 'external' | 'app'
+
+export type KbSyncLists = Pick<KbSyncReport, 'pulled' | 'pushed' | 'conflicts' | 'deletedLocal' | 'deletedRemote'>
+
+export interface KbSyncLogEntry {
+  id: number
+  firstAt: string
+  at: string
+  repeats: number
+  trigger: KbSyncTrigger
+  durationMs: number
+  report: KbSyncReport
+  totals: Record<keyof KbSyncLists, number>
+}
+
+export interface KbSyncActivity {
+  entries: KbSyncLogEntry[]
+  nextAt: string | null
+}
+
+export interface KbFileChange {
+  path: string
+  status: 'added' | 'modified' | 'deleted'
+  added?: number | null
+  removed?: number | null
+}
+
+export interface KbGitCommit {
+  hash: string
+  merge: boolean
+  date: string
+  author: string
+  email: string
+  subject: string
+  pushed: boolean
+  files: KbFileChange[]
+  fileCount: number
+}
+
+export interface KbGitCommitDetail extends KbGitCommit {
+  body: string
+}
+
+export interface KbGitOverview {
+  branch: string
+  remote: RemoteLinks | null
+  head: KbGitCommit | null
+  remoteHead: string | null
+  ahead: number
+  behind: number
+  commits: number
+  pending: KbFileChange[]
+  pendingCount: number
 }
 
 export interface KbSpace {

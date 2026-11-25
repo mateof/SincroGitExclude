@@ -244,6 +244,25 @@ const migrations: Migration[] = [
         trusted_signers TEXT NOT NULL DEFAULT '[]'
       );
     `
+  },
+  {
+    version: 13,
+    description: 'Knowledge base: log of the syncs of each space',
+    up: `
+      CREATE TABLE IF NOT EXISTS kb_sync_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        space_id TEXT NOT NULL REFERENCES kb_spaces(id) ON DELETE CASCADE,
+        first_at TEXT NOT NULL,
+        at TEXT NOT NULL,
+        repeats INTEGER NOT NULL DEFAULT 1,
+        started_by TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        report TEXT NOT NULL,
+        totals TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_kb_sync_log_space ON kb_sync_log(space_id, id);
+    `
   }
 ]
 

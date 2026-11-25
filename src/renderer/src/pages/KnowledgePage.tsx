@@ -2,22 +2,16 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   BookOpen,
+  ExternalLink,
   FolderOpen,
-  RefreshCw,
   Settings2,
   TriangleAlert,
   FileText,
   Bot,
-  GitBranch,
-  HardDrive,
-  Server,
-  Laptop,
   Users,
   ShieldCheck,
   Library,
   Plus,
-  CircleCheck,
-  CircleAlert,
   Hash
 } from 'lucide-react'
 import { kbCall, useKbStore } from '@/stores/kb-store'
@@ -26,90 +20,10 @@ import { NoteView } from '@/components/kb/NoteView'
 import { SpaceDialog } from '@/components/kb/SpaceDialog'
 import { ReviewDialog } from '@/components/kb/ReviewDialog'
 import { EncryptionCard } from '@/components/kb/EncryptionCard'
-import type { KbSpace, KbSyncReport } from '../../../shared/kb/types'
-
-const BACKEND_ICON = { none: Laptop, git: GitBranch, folder: HardDrive, sftp: Server }
-
-function relative(iso: string | null, lang: string): string {
-  if (!iso) return ''
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000
-  const rtf = new Intl.RelativeTimeFormat(lang === 'es' ? 'es' : 'en', { numeric: 'auto' })
-  if (diff < 60) return rtf.format(-Math.round(diff), 'second')
-  if (diff < 3600) return rtf.format(-Math.round(diff / 60), 'minute')
-  if (diff < 86400) return rtf.format(-Math.round(diff / 3600), 'hour')
-  return rtf.format(-Math.round(diff / 86400), 'day')
-}
-
-function ReportList({ title, items }: { title: string; items: string[] }) {
-  if (items.length === 0) return null
-  return (
-    <details className="text-xs">
-      <summary className="cursor-pointer text-muted-foreground">
-        {title} ({items.length})
-      </summary>
-      <ul className="mt-1 ml-4 list-disc space-y-0.5 font-mono text-[11px] select-text">
-        {items.slice(0, 50).map((p) => (
-          <li key={p}>{p}</li>
-        ))}
-      </ul>
-    </details>
-  )
-}
-
-function SyncCard({ space }: { space: KbSpace }) {
-  const { t, i18n } = useTranslation('kb')
-  const { syncNow, syncing } = useKbStore()
-  const [last, setLast] = useState<KbSyncReport | null>(space.lastSyncStatus)
-  useEffect(() => setLast(space.lastSyncStatus), [space.lastSyncStatus])
-  const Icon = BACKEND_ICON[space.backend]
-  if (space.backend === 'none') {
-    return (
-      <div className="kb-card">
-        <div className="kb-card-title">
-          <Laptop className="w-4 h-4" />
-          {t('sync.title')}
-        </div>
-        <p className="text-xs text-muted-foreground">{t('sync.noRemote')}</p>
-      </div>
-    )
-  }
-  const ok = last?.ok && !last.blockedBy
-  return (
-    <div className="kb-card">
-      <div className="kb-card-title">
-        <Icon className="w-4 h-4" />
-        {t('sync.title')} · {t(`space.backend.${space.backend}`)}
-        <button
-          type="button"
-          onClick={() => void syncNow(space.id).then((r) => r && setLast(r))}
-          disabled={syncing[space.id] || space.locked}
-          className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-xs border border-border rounded-md hover:bg-secondary disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${syncing[space.id] ? 'animate-spin' : ''}`} />
-          {syncing[space.id] ? t('sync.running') : t('space.syncNow')}
-        </button>
-      </div>
-      {!last ? (
-        <p className="text-xs text-muted-foreground">{t('sync.never')}</p>
-      ) : (
-        <div className="space-y-1.5">
-          <div className={`text-xs flex items-center gap-1.5 ${ok ? 'text-success' : 'text-warning'}`}>
-            {ok ? <CircleCheck className="w-3.5 h-3.5" /> : <CircleAlert className="w-3.5 h-3.5" />}
-            {last.blockedBy ? t(`sync.blocked.${last.blockedBy}`) : ok ? t('sync.ok') : t('sync.failed')}
-            <span className="text-muted-foreground">· {t('sync.last', { date: relative(last.at, i18n.language) })}</span>
-          </div>
-          {last.message && <p className="text-xs text-muted-foreground select-text">{last.message}</p>}
-          <ReportList title={t('sync.pulled')} items={last.pulled} />
-          <ReportList title={t('sync.pushed')} items={last.pushed} />
-          <ReportList title={t('sync.conflicts')} items={last.conflicts} />
-          <ReportList title={t('sync.deletedLocal')} items={last.deletedLocal} />
-          <ReportList title={t('sync.deletedRemote')} items={last.deletedRemote} />
-          <ReportList title={t('sync.secrets')} items={last.secrets.map((s) => `${s.path}:${s.line} (${s.rule})`)} />
-        </div>
-      )}
-    </div>
-  )
-}
+import { SyncCard } from '@/components/kb/SyncCard'
+import { relativeTime } from '@/lib/relative-time'
+import { safeRemoteLinks } from '../../../shared/kb/git-remote'
+import type { KbSpace } from '../../../shared/kb/types'
 
 function SpaceOverview({ space }: { space: KbSpace }) {
   const { t, i18n } = useTranslation('kb')
@@ -128,6 +42,7 @@ function SpaceOverview({ space }: { space: KbSpace }) {
 
   const inbox = trees[space.id]?.children?.find((c) => c.type === 'folder' && c.name.toLowerCase() === 'inbox')
   const parent = spaces.find((s) => s.id === space.parentId)
+  const repo = space.backend === 'git' ? safeRemoteLinks(space.backendConfig.remoteUrl) : null
   const action = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary'
 
   return (
@@ -153,6 +68,12 @@ function SpaceOverview({ space }: { space: KbSpace }) {
                 <FolderOpen className="w-3.5 h-3.5" />
               </button>
             </>
+          )}
+          {repo?.repoUrl && (
+            <a href={repo.repoUrl} target="_blank" rel="noreferrer noopener" className={action} title={repo.repoUrl}>
+              <ExternalLink className="w-3.5 h-3.5" />
+              {t(`space.openRepo.${repo.provider}`)}
+            </a>
           )}
           <button type="button" className={action} onClick={() => setEditing(true)}>
             <Settings2 className="w-3.5 h-3.5" />
@@ -224,7 +145,7 @@ function SpaceOverview({ space }: { space: KbSpace }) {
                 >
                   <span className="text-xs truncate flex-1">{n.title}</span>
                   <span className="text-[10px] text-muted-foreground truncate max-w-[40%]">{n.path.split('/').slice(0, -1).join('/')}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">{relative(n.mtime, i18n.language)}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">{relativeTime(n.mtime, i18n.language)}</span>
                 </button>
               ))}
             </div>

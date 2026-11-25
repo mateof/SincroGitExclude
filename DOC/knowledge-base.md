@@ -57,6 +57,15 @@ The token is stored in the system keychain, tied to the server of the space: cha
 
 When the remote only has the commit a server creates with a new repository (README, LICENSE, .gitignore), the first sync builds on it and keeps the files of the space.
 
+### Activity
+
+The sync card shows the last exchange of files, when the next automatic sync runs and, in git spaces, the branch, the last commit with its files, commits still to send or receive (as of the last sync) and files not committed yet. *View activity* opens:
+
+- **Syncs:** what started each one, the files it moved or deleted, conflicts, problems and how long it took. The app keeps the last 200 of each space that moved files or had problems, on this computer only. A repeated problem is counted in one entry. Syncs that found no changes are left out.
+- **Commits** (git spaces without encryption): author, date, files and the diff of each file, with a link to the commit on GitHub, GitLab or Gitea.
+
+A button next to the settings opens the repository in the browser. It needs an `https` remote, or an SSH remote on a server recognised as GitHub, GitLab or Gitea.
+
 ### Folder and SFTP
 
 These use a three-way sync: the app remembers the hash of every file at the last sync and compares it with the local file and the remote file.
